@@ -97,6 +97,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     let hasInitializedWithProperSize = false;
     // Specifically track mammal eyes initialization to prevent multiple initializations
     let hasMammalEyesInitialized = false;
+    // Keep track of the initial eye positions to prevent jumping
+    let initialEyePositions: { x: number; y: number }[] = [];
     
     // Initialize all particles based on current dimensions
     const initializeParticles = (w: number, h: number) => {
@@ -275,14 +277,34 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           
           // Update active eye positions if they exist
           if (particlesRef.current.activeEyePositions && particlesRef.current.activeEyePositions.length > 0) {
-            const shuffled = [...eyePositions].sort(() => 0.5 - Math.random());
-            const updatedPositions = shuffled.slice(0, particlesRef.current.activeEyePositions.length);
+            // Instead of creating new random positions, scale the existing ones to the new dimensions
+            // This prevents eyes from jumping to random positions
+            const updatedPositions = particlesRef.current.activeEyePositions.map((pos: any) => {
+              // If these are our initial positions that we've stored, use those coordinates
+              if (initialEyePositions.length > 0 && hasMammalEyesInitialized) {
+                const matchingInitialPos = initialEyePositions.find((initPos, idx) => 
+                  idx === particlesRef.current.activeEyePositions.indexOf(pos));
+                  
+                if (matchingInitialPos) {
+                  return {
+                    x: matchingInitialPos.x * (w / (w || 1)),
+                    y: matchingInitialPos.y * (h / (h || 1))
+                  };
+                }
+              }
+              
+              // Scale existing position to new dimensions
+              return {
+                x: pos.x * (w / (w || 1)),
+                y: pos.y * (h / (h || 1))
+              };
+            });
             
             setParticles(prev => ({
               ...prev,
               activeEyePositions: updatedPositions
             }));
-            console.log(`[DEBUG] Updated eye positions after resize: ${updatedPositions.length} positions`);
+            console.log(`[DEBUG] Updated eye positions after resize: ${updatedPositions.length} positions (maintained existing positions)`);
           }
           
           // Update animal shadows
@@ -358,7 +380,19 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     delayedResizes.forEach((delay, index) => {
       setTimeout(() => {
         console.log(`[DEBUG] Delayed resize #${index + 1} after ${delay}ms`);
+        
+        // Keep track of mammal eye state before resize
+        const preMammalEyeState = {
+          hasMammalEyesInitialized: hasMammalEyesInitialized,
+          initialEyePositions: [...initialEyePositions],
+          eyeFadeTimestamp: particlesRef.current?.eyeFadeTimestamp || 0
+        };
+        
         resizeCanvas();
+        
+        // Restore mammal eye state after resize to ensure consistency
+        hasMammalEyesInitialized = preMammalEyeState.hasMammalEyesInitialized;
+        initialEyePositions = [...preMammalEyeState.initialEyePositions];
         
         // Force reinitialize particles on the last attempt if still not initialized with proper dimensions
         if (!hasInitializedWithProperSize && index === delayedResizes.length - 1) {
@@ -878,11 +912,15 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               const initialNumPairs = Math.min(2, numEyePairs);
               console.log(`[DEBUG] First mammal appearance - limiting to ${initialNumPairs} eye pairs (was ${numEyePairs})`);
             
+              // Save the initial positions to prevent jumping on resize
+              const shuffledPositions = [...positions].sort(() => 0.5 - Math.random());
+              initialEyePositions = shuffledPositions.slice(0, initialNumPairs);
+            
               setParticles(prev => ({
                 ...prev,
                 lastEyePositionChange: frameCountRef.current,
                 // Initialize with shuffled positions and starting with high visibility
-                activeEyePositions: [...positions].sort(() => 0.5 - Math.random()).slice(0, initialNumPairs),
+                activeEyePositions: initialEyePositions,
                 eyePairs: Array(initialNumPairs).fill(0).map((_, i) => ({
                   opacity: 0.01, // Start with very low opacity for proper fade-in
                   blinkTimer: 3000 + Math.random() * 2000,
@@ -904,16 +942,38 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           // Randomize positions at less frequent intervals to maintain visibility
           const timeSinceLastChange = frameCountRef.current - (currentParticles.lastEyePositionChange || 0);
           
-          if (!currentParticles.activeEyePositions || timeSinceLastChange > 9000) {
+          // Use a timestamp-based approach for fade direction
+          const now = Date.now();
+          const secondsSincePositionChange = (now - (currentParticles.eyeFadeTimestamp || now)) / 1000;
+          
+          // Improved fade pattern: 1.5s fade in, 6s visible, 1.5s fade out (9s total cycle)
+          const isFadingIn = secondsSincePositionChange < 1.5;
+          const isFadingOut = secondsSincePositionChange > 7.5;
+          
+          // Log eye state periodically for debugging
+          if (frameCountRef.current % 100 === 0) {
+            console.log(`[DEBUG] Eyes state - fadeTime: ${secondsSincePositionChange.toFixed(1)}s, fading in: ${isFadingIn}, fading out: ${isFadingOut}`);
+          }
+          
+          // Only change positions if the eyes have completely faded out and the delay has elapsed,
+          // or if no positions exist yet
+          const readyForNewPositions = 
+            !currentParticles.activeEyePositions || 
+            (secondsSincePositionChange > 9.5 && now >= (currentParticles.nextEyeReturnDelay || 0));
+          
+          if (readyForNewPositions) {
             // Shuffle positions array to get random positions
             const shuffled = [...positions].sort(() => 0.5 - Math.random());
             
             // NEVER have zero eyes - always show at least one pair
             const actualNumPairs = Math.min(Math.max(1, numEyePairs), maxPairs);
             
-            console.log(`[DEBUG] Updating mammal eye positions - pairs: ${actualNumPairs}, timeSince: ${timeSinceLastChange}`);
+            console.log(`[DEBUG] Time for new mammal eye positions - pairs: ${actualNumPairs}, timeSince: ${timeSinceLastChange}s, secondsSincePositionChange: ${secondsSincePositionChange.toFixed(1)}s`);
             
             const activePositions = shuffled.slice(0, actualNumPairs);
+            
+            // Update our stored initial positions to prevent jumps on resize
+            initialEyePositions = [...activePositions];
             
             // Preserve behaviors when updating positions
             const newEyePairs = activePositions.map((_, i) => {
@@ -935,11 +995,31 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               eyePairs: newEyePairs,
               lastEyePositionChange: frameCountRef.current,
               // Store the timestamp when the change happens to determine fade direction
-              eyeFadeTimestamp: Date.now(), // Reset for accurate fade-in
+              eyeFadeTimestamp: now, // Reset for accurate fade-in
               nextEyeReturnDelay: 0 // Reset delay when positions change
             }));
             
             console.log('[DEBUG] New mammal eyes created with starting opacity 0.01 for proper fade-in');
+          } else if (secondsSincePositionChange > 9.5) {
+            // If we're past the fade out but waiting for delay, log this
+            if (frameCountRef.current % 100 === 0) {
+              const timeRemaining = currentParticles.nextEyeReturnDelay ? 
+                ((currentParticles.nextEyeReturnDelay - now) / 1000).toFixed(1) : 'unknown';
+              console.log(`[DEBUG] Eyes faded out, waiting ${timeRemaining}s before new positions`);
+            }
+            
+            // Check if we should start a new cycle after the fade out is complete
+            // Only create new eyes if we haven't set a delay or the delay has elapsed
+            if (currentParticles.nextEyeReturnDelay === 0) {
+              // Set a random delay before showing new eyes (between 1-6 seconds)
+              const randomDelay = now + randomBetween(1000, 6000);
+              console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
+              
+              setParticles(prev => ({
+                ...prev,
+                nextEyeReturnDelay: randomDelay
+              }));
+            }
           }
           
           // Get active positions or fallback to default positions
@@ -959,9 +1039,60 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             console.log(`[DEBUG] Eyes state - fadeTime: ${secondsSincePositionChange.toFixed(1)}s, fading in: ${isFadingIn}, fading out: ${isFadingOut}`);
           }
           
-          // Check if we should start a new cycle after the fade out is complete
-          // This ensures eyes don't get stuck in the black state
-          if (secondsSincePositionChange > 9.5) {
+          // Only change positions if the eyes have completely faded out and the delay has elapsed,
+          // or if no positions exist yet
+          const readyForNewPositions = 
+            !currentParticles.activeEyePositions || 
+            (secondsSincePositionChange > 9.5 && now >= (currentParticles.nextEyeReturnDelay || 0));
+          
+          if (readyForNewPositions) {
+            // Shuffle positions array to get random positions
+            const shuffled = [...positions].sort(() => 0.5 - Math.random());
+            
+            // NEVER have zero eyes - always show at least one pair
+            const actualNumPairs = Math.min(Math.max(1, numEyePairs), maxPairs);
+            
+            console.log(`[DEBUG] Time for new mammal eye positions - pairs: ${actualNumPairs}, timeSince: ${timeSinceLastChange}s, secondsSincePositionChange: ${secondsSincePositionChange.toFixed(1)}s`);
+            
+            const activePositions = shuffled.slice(0, actualNumPairs);
+            
+            // Update our stored initial positions to prevent jumps on resize
+            initialEyePositions = [...activePositions];
+            
+            // Preserve behaviors when updating positions
+            const newEyePairs = activePositions.map((_, i) => {
+              const existingPair = currentParticles.eyePairs?.[i];
+              return {
+                opacity: 0.01, // Start completely invisible for proper fade-in
+                blinkTimer: 3000 + Math.random() * 2000,
+                size: 0.64 + Math.random() * 0.32, // 20% smaller
+                // Preserve or assign new behavior
+                behavior: existingPair?.behavior || (i % 2 === 0 ? 'cautious' : 'curious'),
+                blinkFrequency: existingPair?.blinkFrequency || (i % 2 === 0 ? 'frequent' : 'rare'),
+                lastBlink: 0
+              };
+            });
+            
+            setParticles(prev => ({
+              ...prev,
+              activeEyePositions: activePositions,
+              eyePairs: newEyePairs,
+              lastEyePositionChange: frameCountRef.current,
+              // Store the timestamp when the change happens to determine fade direction
+              eyeFadeTimestamp: now, // Reset for accurate fade-in
+              nextEyeReturnDelay: 0 // Reset delay when positions change
+            }));
+            
+            console.log('[DEBUG] New mammal eyes created with starting opacity 0.01 for proper fade-in');
+          } else if (secondsSincePositionChange > 9.5) {
+            // If we're past the fade out but waiting for delay, log this
+            if (frameCountRef.current % 100 === 0) {
+              const timeRemaining = currentParticles.nextEyeReturnDelay ? 
+                ((currentParticles.nextEyeReturnDelay - now) / 1000).toFixed(1) : 'unknown';
+              console.log(`[DEBUG] Eyes faded out, waiting ${timeRemaining}s before new positions`);
+            }
+            
+            // Check if we should start a new cycle after the fade out is complete
             // Only create new eyes if we haven't set a delay or the delay has elapsed
             if (currentParticles.nextEyeReturnDelay === 0) {
               // Set a random delay before showing new eyes (between 1-6 seconds)
@@ -972,43 +1103,6 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 ...prev,
                 nextEyeReturnDelay: randomDelay
               }));
-            } else if (now >= currentParticles.nextEyeReturnDelay) {
-              // Delay has elapsed, create new eyes
-              console.log(`[DEBUG] Eye return delay elapsed - creating new eye pairs`);
-              
-              // Shuffle positions array to get random positions
-              const shuffled = [...positions].sort(() => 0.5 - Math.random());
-              
-              // Get new positions to ensure the eyes move to different locations
-              const actualNumPairs = Math.min(Math.max(1, numEyePairs), maxPairs);
-              const activePositions = shuffled.slice(0, actualNumPairs);
-              
-              // Create completely new eye pairs (don't preserve behavior to add variety)
-              const newEyePairs = activePositions.map((_, i) => ({
-                opacity: 0.01, // Start completely invisible for proper fade-in
-                blinkTimer: 3000 + Math.random() * 2000,
-                size: 0.64 + Math.random() * 0.32, // 20% smaller
-                behavior: i % 2 === 0 ? 'cautious' : 'curious', // Fresh behaviors
-                blinkFrequency: i % 2 === 0 ? 'frequent' : 'rare',
-                lastBlink: 0
-              }));
-              
-              setParticles(prev => ({
-                ...prev,
-                activeEyePositions: activePositions,
-                eyePairs: newEyePairs,
-                lastEyePositionChange: frameCountRef.current,
-                eyeFadeTimestamp: now, // Reset timestamp for accurate fade-in
-                nextEyeReturnDelay: 0 // Reset delay
-              }));
-              
-              console.log('[DEBUG] New eyes created after delay with starting opacity 0.01');
-            } else {
-              // Waiting for delay to elapse
-              if (frameCountRef.current % 100 === 0) {
-                const timeRemaining = (currentParticles.nextEyeReturnDelay - now) / 1000;
-                console.log(`[DEBUG] Waiting ${timeRemaining.toFixed(1)}s before showing new eyes`);
-              }
             }
           }
           
