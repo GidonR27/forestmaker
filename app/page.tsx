@@ -49,20 +49,52 @@ export default function Home() {
   // Preload forest images
   useEffect(() => {
     const preloadImages = async () => {
+      console.log('[DEBUG] Starting to preload forest images');
       const imagePromises = forests.map((forest: Forest) => {
         return new Promise((resolve, reject) => {
+          console.log(`[DEBUG] Loading image: ${forest.name} - ${forest.imageUrl}`);
           const img = new window.Image();
+          
+          // Set a timeout to catch hanging image loads
+          const timeout = setTimeout(() => {
+            console.error(`[ERROR] Timeout loading image: ${forest.imageUrl}`);
+            reject(new Error(`Timeout loading image: ${forest.imageUrl}`));
+          }, 10000);
+          
+          img.onload = () => {
+            clearTimeout(timeout);
+            console.log(`[DEBUG] Successfully loaded image: ${forest.imageUrl}`);
+            resolve(null);
+          };
+          
+          img.onerror = (error) => {
+            clearTimeout(timeout);
+            console.error(`[ERROR] Failed to load image: ${forest.imageUrl}`, error);
+            // Try to detect if the image path is wrong
+            fetch(forest.imageUrl)
+              .then(response => {
+                if (!response.ok) {
+                  console.error(`[ERROR] Image fetch failed with status: ${response.status} for ${forest.imageUrl}`);
+                }
+              })
+              .catch(fetchError => {
+                console.error(`[ERROR] Image fetch failed completely: ${fetchError}`);
+              });
+            reject(error);
+          };
+          
           img.src = forest.imageUrl;
-          img.onload = resolve;
-          img.onerror = reject;
         });
       });
 
       try {
         await Promise.all(imagePromises);
+        console.log('[DEBUG] All forest images preloaded successfully');
         setImagesLoaded(true);
       } catch (error) {
-        console.error('Failed to preload images:', error);
+        console.error('[ERROR] Failed to preload images:', error);
+        // Continue anyway to allow the app to function
+        setImagesLoaded(true);
       }
     };
 
@@ -72,9 +104,11 @@ export default function Home() {
   // Handle next image loading
   useEffect(() => {
     if (currentForest?.imageUrl) {
+      console.log(`[DEBUG] Loading current forest image: ${currentForest.imageUrl}`);
       const img = new window.Image();
-      img.src = currentForest.imageUrl;
+      
       img.onload = () => {
+        console.log(`[DEBUG] Current forest image loaded successfully: ${currentForest.imageUrl}`);
         setNextImageLoaded(true);
         // Start transition only after image is loaded
         setIsTransitioning(true);
@@ -84,8 +118,22 @@ export default function Home() {
           setPreviousImage(currentForest.imageUrl);
         }, 1000);
       };
+      
+      img.onerror = (error) => {
+        console.error(`[ERROR] Failed to load current forest image: ${currentForest.imageUrl}`, error);
+        // Try to continue anyway with a fallback
+        setNextImageLoaded(true);
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setIsTransitioning(false);
+          // Use the last successful image as fallback
+          setPreviousImage(previousImage);
+        }, 1000);
+      };
+      
+      img.src = currentForest.imageUrl;
     }
-  }, [currentForest?.imageUrl]);
+  }, [currentForest?.imageUrl, previousImage]);
 
   const handleSoundChange = (activeSounds: SoundType[], sliderValues?: Record<SoundType, number>) => {
     console.log('Page Sound Change:', {

@@ -1,8 +1,10 @@
 export interface Forest {
   id: string;
   name: string;
+  shortName?: string; // Optional short name for display purposes
   location: string;
-  vibe: string;
+  description?: string;
+  vibe?: string;
   imageUrl: string;
   soundProfile: {
     wind: number;
@@ -16,6 +18,7 @@ export interface Forest {
     ambient: number;
     spiritual: number;
   };
+  tags?: string[]; // Optional tags for categorization
 }
 
 export const forests: Forest[] = [
@@ -268,22 +271,24 @@ export const forests: Forest[] = [
   },
   {
     id: 'bialowieza',
-    name: 'Białowieża',
+    name: 'Białowieża Forest',
+    shortName: 'Białowieża',
     location: 'Poland/Belarus',
-    vibe: 'ancient, mystical, primeval, dense, wild',
-    imageUrl: '/assets/images/Bialowieza.jpg',
+    description: 'One of the last and largest remaining parts of the immense primeval forest that once stretched across the European Plain. Home to the European bison.',
+    imageUrl: '/assets/images/bialowieza.jpg',
     soundProfile: {
-      wind: 0.6,
-      rain: 0.7,
-      birds: 0.8,
-      thunder: 0.3,
-      water: 0.4,
-      insects: 0.7,
-      mammals: 0.6,
-      fire: 0.1,
+      wind: 0.4,
+      rain: 0.3,
+      birds: 0.6,
+      thunder: 0.2,
+      water: 0.3,
+      insects: 0.4,
+      mammals: 0.8,  // High due to European bison and other wildlife
+      fire: 0,
       ambient: 0.5,
-      spiritual: 0.4
-    }
+      spiritual: 0.3
+    },
+    tags: ['temperate', 'primeval', 'european', 'wildlife']
   },
   {
     id: 'hoh',
