@@ -841,12 +841,18 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           // Ensure position changes at least every 5 seconds
           if (!currentParticles.lastEyePositionChange) {
             console.log('[DEBUG] Initializing mammal eye positions for the first time');
+            
+            // IMPORTANT: On first appearance, limit to 2 pairs maximum regardless of intensity
+            // This fixes the issue where too many eyes appear on first activation
+            const initialNumPairs = Math.min(2, numEyePairs);
+            console.log(`[DEBUG] First mammal appearance - limiting to ${initialNumPairs} eye pairs (was ${numEyePairs})`);
+            
             setParticles(prev => ({
               ...prev,
               lastEyePositionChange: frameCountRef.current,
               // Initialize with shuffled positions and starting with high visibility
-              activeEyePositions: [...positions].sort(() => 0.5 - Math.random()).slice(0, numEyePairs),
-              eyePairs: Array(numEyePairs).fill(0).map((_, i) => ({
+              activeEyePositions: [...positions].sort(() => 0.5 - Math.random()).slice(0, initialNumPairs),
+              eyePairs: Array(initialNumPairs).fill(0).map((_, i) => ({
                 opacity: 0.01, // Start with very low opacity for proper fade-in
                 blinkTimer: 3000 + Math.random() * 2000,
                 size: 0.64 + Math.random() * 0.32, // 20% smaller (0.8 -> 0.64, 0.4 -> 0.32)
