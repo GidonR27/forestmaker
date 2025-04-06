@@ -1023,6 +1023,9 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           }
           
           // Get active positions or fallback to default positions
+          const activePositions = currentParticles.activeEyePositions || 
+                                 positions.slice(0, numEyePairs);
+                                 
           // For each active eye pair position
           activePositions.forEach((position, idx) => {
             // Get current state or default values
