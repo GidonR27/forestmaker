@@ -802,14 +802,14 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           
           // Define possible positions for eye pairs - expanded to sides and up to half screen height
           const positions = [
-            { x: w * 0.12, y: h * 0.55 },  // left upper
-            { x: w * 0.08, y: h * 0.70 },  // left lower
-            { x: w * 0.25, y: h * 0.65 },  // left-center 
-            { x: w * 0.40, y: h * 0.75 },  // center-left
-            { x: w * 0.60, y: h * 0.72 },  // center-right
-            { x: w * 0.75, y: h * 0.60 },  // right-center
-            { x: w * 0.92, y: h * 0.65 },  // right upper
-            { x: w * 0.88, y: h * 0.80 }   // right lower
+            { x: w * 0.12, y: h * 0.65 },  // left upper - moved down
+            { x: w * 0.08, y: h * 0.80 },  // left lower - moved down
+            { x: w * 0.25, y: h * 0.75 },  // left-center - moved down
+            { x: w * 0.40, y: h * 0.85 },  // center-left - moved down
+            { x: w * 0.60, y: h * 0.82 },  // center-right - moved down
+            { x: w * 0.75, y: h * 0.70 },  // right-center - moved down
+            { x: w * 0.92, y: h * 0.75 },  // right upper - moved down
+            { x: w * 0.88, y: h * 0.90 }   // right lower - moved down
           ];
           
           // Ensure position changes at least every 5 seconds
@@ -1107,10 +1107,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               });
             }
             
-            // Base eye parameters - increased size for better visibility
-            const shadowSize = 45 * (currentPair.size || 1); // Increased from 36 to 45
-            const eyeSize = shadowSize * 0.5;  // Increased from 0.45 to 0.5
-            const eyeSpacing = eyeSize * 1.5;  // Increased from 1.4 to 1.5
+            // Base eye parameters - reduced by 20%
+            const shadowSize = 36 * (currentPair.size || 1); // Reduced from 45 to 36 (20% smaller)
+            const eyeSize = shadowSize * 0.45;
+            const eyeSpacing = eyeSize * 1.4;
             
             // Calculate eye positions
             const centerX = position.x;
@@ -1118,34 +1118,34 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             const leftEyeX = centerX - eyeSpacing / 2;
             const rightEyeX = centerX + eyeSpacing / 2;
             
-            // Only render if opacity is high enough (lowered threshold for better visibility)
-            if (opacity > 0.02) {
+            // Only render if opacity is high enough (prevents "black" eyes with no glows)
+            if (opacity > 0.05) {
               // Draw shadow behind eyes - INCREASED OPACITY
-              ctx.globalAlpha = 0.45 * intensity * opacity;  // Increased from 0.35 to 0.45
-              ctx.fillStyle = 'rgba(5, 5, 5, 0.9)';  // Increased from 0.8 to 0.9
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';  // Increased from 0.6 to 0.7
-              ctx.shadowBlur = 15;  // Increased from 12 to 15
+              ctx.globalAlpha = 0.35 * intensity * opacity;
+              ctx.fillStyle = 'rgba(5, 5, 5, 0.8)';
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+              ctx.shadowBlur = 12;
               
               // Draw shadow as oval behind both eyes
               ctx.beginPath();
               ctx.ellipse(
                 centerX, 
                 centerY, 
-                eyeSpacing * 1.4,  // Increased from 1.3 to 1.4
-                eyeSpacing * 0.9,  // Increased from 0.8 to 0.9
+                eyeSpacing * 1.3,
+                eyeSpacing * 0.8,
                 0, 0, Math.PI * 2
               );
               ctx.fill();
               
               if (eyesOpen) {
                 // Draw eye outlines (dark areas) - INCREASED OPACITY
-                ctx.globalAlpha = 0.65 * intensity * opacity;  // Increased from 0.55 to 0.65
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.98)';  // Increased from 0.95 to 0.98
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';  // Increased from 0.8 to 0.85
-                ctx.shadowBlur = 6;  // Increased from 5 to 6
+                ctx.globalAlpha = 0.55 * intensity * opacity;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                ctx.shadowBlur = 5;
                 
                 // Apply squinting effect to eye shape
-                const verticalScale = 1 - squintAmount * 0.6;  // Reduced from 0.7 to 0.6 for less dramatic squinting
+                const verticalScale = 1 - squintAmount * 0.7; // Reduces height as squint increases
                 
                 // Left eye outline - modified for wolf-like triangular shape
                 ctx.beginPath();
@@ -1210,57 +1210,57 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 ctx.fill();
                 
                 // Draw glowing irises with behavior-specific variations
-                ctx.globalAlpha = 0.95 * intensity * opacity * (1 - squintAmount * 0.4); // Increased from 0.85 and reduced squint effect
+                ctx.globalAlpha = 0.85 * intensity * opacity * (1 - squintAmount * 0.5); // Reduce glow during squint
                 
                 // Add glow effect - different for each behavior
                 if (behavior === 'curious') {
-                  ctx.shadowColor = 'rgba(255, 220, 100, 0.95)'; // Increased from 0.85
-                  ctx.shadowBlur = 18; // Increased from 15
+                  ctx.shadowColor = 'rgba(255, 220, 100, 0.85)'; // Brighter yellow for curious
+                  ctx.shadowBlur = 15;
                 } else {
-                  ctx.shadowColor = 'rgba(200, 220, 100, 0.85)'; // Increased from 0.75
-                  ctx.shadowBlur = 15; // Increased from 12
+                  ctx.shadowColor = 'rgba(200, 220, 100, 0.75)'; // More greenish for cautious
+                  ctx.shadowBlur = 12;
                 }
                 
-                // Choose species-specific eye colors - with behavior variations and increased brightness
+                // Choose species-specific eye colors - with behavior variations
                 let eyeColor;
                 switch(idx % 4) {
                   case 0: // Deer - yellow amber
                     eyeColor = behavior === 'curious' ? 
-                      'rgba(245, 230, 110, 0.98)' : // Brighter
-                      'rgba(235, 220, 110, 0.95)';  // Brighter
+                      'rgba(235, 220, 100, 0.95)' : // Brighter for curious
+                      'rgba(225, 210, 100, 0.9)';   // Dimmer for cautious
                     break;
                   case 1: // Wolf - yellow-green
                     eyeColor = behavior === 'curious' ? 
-                      'rgba(230, 250, 130, 0.98)' : // Brighter
-                      'rgba(220, 240, 120, 0.95)';  // Brighter
+                      'rgba(220, 240, 120, 0.95)' : // Brighter for curious
+                      'rgba(200, 230, 110, 0.9)';   // Dimmer for cautious
                     break;
                   case 2: // Fox - orange amber
                     eyeColor = behavior === 'curious' ? 
-                      'rgba(250, 200, 95, 0.98)' :  // Brighter
-                      'rgba(240, 190, 90, 0.95)';   // Brighter
+                      'rgba(240, 190, 85, 0.95)' :  // Brighter for curious
+                      'rgba(230, 180, 80, 0.9)';    // Dimmer for cautious
                     break;
                   case 3: // Cougar - green-yellow
                     eyeColor = behavior === 'curious' ? 
-                      'rgba(220, 250, 110, 0.98)' : // Brighter
-                      'rgba(210, 240, 100, 0.95)';  // Brighter
+                      'rgba(210, 240, 100, 0.95)' : // Brighter for curious
+                      'rgba(200, 230, 90, 0.9)';    // Dimmer for cautious
                     break;
                 }
                 
-                ctx.fillStyle = eyeColor || 'rgba(245, 230, 110, 0.98)'; // Brighter default
+                ctx.fillStyle = eyeColor || 'rgba(235, 220, 100, 0.95)';
                 
                 // Left iris - modified to follow triangular shape but stay rounded
-                // Scale down iris from eye outline less to make eyes more prominent
-                const irisScaleFactor = 0.85; // Increased from 0.8
+                // Scale down iris from eye outline
+                const irisScaleFactor = 0.8;
                 const leftIrisWidth = eyeWidth * irisScaleFactor;
                 const leftIrisHeight = eyeHeight * irisScaleFactor * verticalScale;
                 
                 ctx.beginPath();
                 // Draw a more oval iris that follows the eye shape but remains rounded
                 ctx.ellipse(
-                  leftEyeX - eyeWidth * 0.1,
+                  leftEyeX - eyeWidth * 0.1, // Shifted slightly toward the outer edge
                   centerY,
-                  leftIrisWidth * 0.75, // Increased from 0.7
-                  leftIrisHeight * 0.85, // Increased from 0.8
+                  leftIrisWidth * 0.7, // Narrower width
+                  leftIrisHeight * 0.8, // Lower height 
                   0, 0, Math.PI * 2
                 );
                 ctx.fill();
@@ -1272,32 +1272,31 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 ctx.beginPath();
                 // Draw a more oval iris that follows the eye shape but remains rounded
                 ctx.ellipse(
-                  rightEyeX + eyeWidth * 0.1,
+                  rightEyeX + eyeWidth * 0.1, // Shifted slightly toward the outer edge
                   centerY,
-                  rightIrisWidth * 0.75, // Increased from 0.7
-                  rightIrisHeight * 0.85, // Increased from 0.8
+                  rightIrisWidth * 0.7, // Narrower width
+                  rightIrisHeight * 0.8, // Lower height
                   0, 0, Math.PI * 2
                 );
                 ctx.fill();
                 
                 // Add catchlight reflections in eyes - affected by squinting
-                if (squintAmount < 0.8) { // Increased from 0.7 to show catchlights more often
+                if (squintAmount < 0.7) { // Only show catchlights when eyes are open enough
                   ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
-                  ctx.shadowBlur = 3; // Increased from 2
-                  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)'; // Added white glow to catchlights
+                  ctx.shadowBlur = 2;
                   
                   // Adjust catchlight position during squint (moves down slightly as eyes close)
                   const catchlightSquintAdjustment = squintAmount * eyeSize * 0.1;
                   
                   // Different positioning for different behaviors
                   const catchlightOffsetX = behavior === 'curious' ? 
-                    eyeSize * 0.25 : // Increased from 0.22
-                    eyeSize * 0.2;    // Increased from 0.18
+                    eyeSize * 0.22 : // More centered for curious (looking directly at viewer)
+                    eyeSize * 0.18;   // More to the side for cautious (looking more to the side)
                     
-                  const catchlightOffsetY = -eyeSize * 0.15 + catchlightSquintAdjustment; // Moved up slightly
+                  const catchlightOffsetY = -eyeSize * 0.1 + catchlightSquintAdjustment;
                   
-                  // Scale down catchlights during squinting less dramatically
-                  const catchlightScale = 1 - squintAmount * 0.5; // Reduced from 0.6
+                  // Scale down catchlights during squinting
+                  const catchlightScale = 1 - squintAmount * 0.6;
                   
                   // Left eye catchlight
                   ctx.beginPath();
