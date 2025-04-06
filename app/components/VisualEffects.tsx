@@ -1012,7 +1012,9 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             // Only create new eyes if we haven't set a delay or the delay has elapsed
             if (currentParticles.nextEyeReturnDelay === 0) {
               // Set a random delay before showing new eyes (between 1-6 seconds)
-              const randomDelay = now + randomBetween(1000, 6000);
+              // INCREASE THE MINIMUM DELAY to ensure a noticeable gap between appearances
+              // Changed from 1000-6000 to 3000-8000 for a consistent 3-8 second pause
+              const randomDelay = now + randomBetween(3000, 8000);
               console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
               
               setParticles(prev => ({
