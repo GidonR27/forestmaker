@@ -23,6 +23,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
   const nextTriggersRef = useRef<any>(null);
   const flashAlphaRef = useRef<number>(0);
   
+  // Refs for visual effects continuity
+  const activeVisualsRef = useRef<Set<SoundType>>(new Set()); // Track currently active visuals
+  const lastSoundValuesRef = useRef<Record<string, number>>({}); // Track last sound intensity values
+  
   // Refs for mammal eye delay logic
   const lastEyePositionTimeRef = useRef<number>(0);
   const needsDelayNextCycleRef = useRef<boolean>(false);
@@ -121,34 +125,64 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         return false; // Failed to initialize with proper dimensions
       }
       
+      // Preserve existing particles for continuous visuals if they exist
+      const existingParticles = particlesRef.current;
+      const preserveExisting = !!existingParticles;
+      
+      // Get list of sounds that should preserve their visuals
+      const soundsToPreserve = preserveExisting ? 
+        Array.from(activeVisualsRef.current).filter(sound => activeSounds.has(sound)) : [];
+      
+      if (preserveExisting && soundsToPreserve.length > 0) {
+        console.log(`[DEBUG] Preserving visuals for: ${soundsToPreserve.join(', ')}`);
+      }
+      
       // Reset all particles with increased quantities and sizes
       const newParticles = {
-        windParticles: Array.from({ length: 50 }, () => ({
-          x: Math.random() * w,
-          y: Math.random() * h * 0.7, // Distribute across most of the height
-          speed: 0.4 + Math.random() * 0.5,
-          radius: 1.5 + Math.random() * 3
-        })),
-        raindrops: Array.from({ length: 100 }, () => ({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          speed: 1.5 + Math.random() * 1.5,
-          length: 15 + Math.random() * 15
-        })),
-        ripples: [],
-        birds: Array.from({ length: 8 }, () => ({
-          x: randomBetween(-50, w),
-          y: randomBetween(0, h * 0.3),
-          dx: 0.8 + Math.random() * 0.7,
-          dy: randomBetween(-0.3, 0.3)
-        })),
-        fireflies: Array.from({ length: 25 }, () => ({
-          x: randomBetween(0, w),
-          y: randomBetween(h * 0.4, h * 0.8),
-          alpha: 0,
-          timer: Math.random() * 7000,
-          pulseInterval: randomBetween(2000, 5000)
-        })),
+        // For wind particles, preserve them if wind is active
+        windParticles: preserveExisting && soundsToPreserve.includes('wind') ? 
+          existingParticles.windParticles.map((p: any) => ({...p})) : 
+          Array.from({ length: 50 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h * 0.7,
+            speed: 0.4 + Math.random() * 0.5,
+            radius: 1.5 + Math.random() * 3
+          })),
+        
+        // For raindrops, preserve them if rain is active
+        raindrops: preserveExisting && soundsToPreserve.includes('rain') ? 
+          existingParticles.raindrops.map((p: any) => ({...p})) : 
+          Array.from({ length: 100 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            speed: 1.5 + Math.random() * 1.5,
+            length: 15 + Math.random() * 15
+          })),
+        
+        // For ripples, preserve if water is active, otherwise empty array
+        ripples: preserveExisting && soundsToPreserve.includes('water') ? 
+          existingParticles.ripples.map((p: any) => ({...p})) : [],
+        
+        // For birds, preserve if birds is active
+        birds: preserveExisting && soundsToPreserve.includes('birds') ? 
+          existingParticles.birds.map((p: any) => ({...p})) : 
+          Array.from({ length: 8 }, () => ({
+            x: randomBetween(-50, w),
+            y: randomBetween(0, h * 0.3),
+            dx: 0.8 + Math.random() * 0.7,
+            dy: randomBetween(-0.3, 0.3)
+          })),
+        
+        // For fireflies, preserve if insects is active
+        fireflies: preserveExisting && soundsToPreserve.includes('insects') ? 
+          existingParticles.fireflies.map((p: any) => ({...p})) : 
+          Array.from({ length: 25 }, () => ({
+            x: randomBetween(0, w),
+            y: randomBetween(h * 0.4, h * 0.8),
+            alpha: 0,
+            timer: Math.random() * 7000,
+            pulseInterval: randomBetween(2000, 5000)
+          })),
         rustles: [
           { x: 50, y: randomBetween(h * 0.2, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
           { x: w - 100, y: randomBetween(h * 0.3, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
@@ -461,35 +495,38 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         }
       }
       
-      // Check for sound changes
-      const activeSoundsArray = Array.from(activeSounds);
-      const prevSoundsArray = Array.from(prevActiveSoundsRef.current);
-      if (JSON.stringify(activeSoundsArray) !== JSON.stringify(prevSoundsArray)) {
-        console.log('[DEBUG] Active sounds changed:', activeSoundsArray);
+      // Update active visuals ref to track continuity
+      const previouslyActive = new Set(activeVisualsRef.current);
+      activeVisualsRef.current = new Set(activeSounds);
+      
+      // Log when visuals are added or removed
+      if (frameCountRef.current % 100 === 0) {
+        Array.from(activeSounds).forEach(sound => {
+          // If a sound is newly active and wasn't active before
+          if (!previouslyActive.has(sound)) {
+            console.log(`[DEBUG] New visual effect activated: ${sound}`);
+          }
+          
+          // If sound value changed significantly
+          const prevValue = lastSoundValuesRef.current[sound] || 0;
+          const currentValue = soundValues[sound] || 0;
+          if (Math.abs(currentValue - prevValue) > 0.2) {
+            console.log(`[DEBUG] Sound value changed significantly: ${sound} ${prevValue.toFixed(2)} → ${currentValue.toFixed(2)}`);
+          }
+        });
         
-        // More detailed logging of priorities
-        if (particlesRef.current?.visualPriorities && particlesRef.current.visualPriorities.length > 0) {
-          console.log('[DEBUG] Current sound priorities (newest first):');
-          particlesRef.current.visualPriorities.forEach((sound: SoundType, index: number) => {
-            const timestamp = particlesRef.current?.activationTimestamps?.[sound as keyof typeof particlesRef.current.activationTimestamps] || 0;
-            const age = Math.floor((now - timestamp) / 1000); // age in seconds
-            console.log(`[DEBUG] ${index + 1}. ${sound} (intensity: ${soundValues[sound]?.toFixed(2)}, age: ${age}s)`);
-          });
-        }
-        
-        prevActiveSoundsRef.current = new Set(activeSounds);
+        // Log deactivated effects
+        Array.from(previouslyActive).forEach(sound => {
+          if (!activeSounds.has(sound)) {
+            console.log(`[DEBUG] Visual effect deactivated: ${sound}`);
+          }
+        });
       }
       
-      // Add extra debug logging to check for fire specifically
-      if (activeSounds.has('fire')) {
-        if (frameCountRef.current % 100 === 0) {
-          console.log('[DEBUG] Fire is in active sounds set, intensity:', soundValues.fire);
-        }
-      } else {
-        if (frameCountRef.current % 500 === 0) {
-          console.log('[DEBUG] Fire is NOT in active sounds. All active sounds:', Array.from(activeSounds));
-        }
-      }
+      // Update last sound values
+      Object.keys(soundValues).forEach(key => {
+        lastSoundValuesRef.current[key as SoundType] = soundValues[key as SoundType];
+      });
       
       // Update all animations using ref values instead of direct state
       const currentParticles = particlesRef.current;
