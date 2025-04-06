@@ -20,14 +20,35 @@ try {
 
 const nextConfig = {
   reactStrictMode: true,
-  // For serving images from public folder
+  // For serving images from public folder with improved settings
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
-    domains: ['localhost']
+    domains: ['localhost', '192.168.1.191'], // Add your local IP here if needed
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+        pathname: '**',
+      },
+    ],
   },
+  // Use the HTTPS config if available
+  server: httpsConfig ? {
+    https: httpsConfig,
+    http2: true,
+  } : {},
   // No need to specify webpack config if you're not modifying it
   webpack: (config) => {
     return config;
+  },
+  // Add support for HTTPS in development
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        destination: '/:path*',
+      },
+    ];
   },
 };
 
