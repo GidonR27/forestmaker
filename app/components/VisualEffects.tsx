@@ -84,244 +84,7 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     return Math.random() * (max - min) + min;
   };
 
-  // Initialize particles based on canvas size
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    // Use display size, not the scaled canvas size
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.width / dpr;
-    const h = canvas.height / dpr;
-    
-    console.log(`[DEBUG] Initializing particles - Canvas display size: ${w}x${h}, DPR: ${dpr}`);
-    
-    // Reset all particles with increased quantities and sizes
-    const newParticles = {
-      windParticles: Array.from({ length: 50 }, () => ({  // Increased from 30 to 50
-        x: Math.random() * w,
-        y: Math.random() * h * 0.7,
-        speed: 0.4 + Math.random() * 0.5,  // Increased speed
-        radius: 1.5 + Math.random() * 3  // Larger particles
-      })),
-      raindrops: Array.from({ length: 100 }, () => ({  // Increased from 60 to 100
-        x: Math.random() * w,
-        y: Math.random() * h,
-        speed: 1.5 + Math.random() * 1.5,  // Faster rain
-        length: 15 + Math.random() * 15  // Longer raindrops
-      })),
-      ripples: [],
-      birds: Array.from({ length: 8 }, () => ({  // Increased from 5 to 8
-        x: randomBetween(-50, w),
-        y: randomBetween(0, h * 0.3),
-        dx: 0.8 + Math.random() * 0.7,  // Faster birds
-        dy: randomBetween(-0.3, 0.3)  // More vertical movement
-      })),
-      fireflies: Array.from({ length: 25 }, () => ({  // Increased from 15 to 25
-        x: randomBetween(0, w),
-        y: randomBetween(h * 0.4, h * 0.8),
-        alpha: 0,
-        timer: Math.random() * 7000,
-        pulseInterval: randomBetween(2000, 5000)  // Faster pulse interval
-      })),
-      rustles: [
-        { x: 50, y: randomBetween(h * 0.2, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
-        { x: w - 100, y: randomBetween(h * 0.3, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
-        { x: w/2 - 150, y: randomBetween(h * 0.2, h * 0.4), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
-        { x: w/2 + 100, y: randomBetween(h * 0.25, h * 0.45), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
-        { x: w/3, y: randomBetween(h * 0.2, h * 0.4), timer: 0, nextAt: randomBetween(5000, 10000), active: false }
-      ],
-      embers: Array.from({ length: 25 }, () => ({  // Increased from 15 to 25
-        x: w / 2 + randomBetween(-50, 50),  // Wider area
-        y: h - 50 + Math.random() * 20,
-        speed: 0.5 + Math.random() * 0.8,  // Faster embers
-        size: 2 + Math.random() * 3,  // Larger embers
-        color: `rgba(${255}, ${150 + Math.floor(Math.random() * 105)}, ${50 + Math.floor(Math.random() * 50)}, ${0.5 + Math.random() * 0.5})`  // More opaque
-      })),
-      ambientWaves: Array.from({ length: 5 }, (_, i) => ({  // Increased from 3 to 5
-        x: 0,
-        y: h * 0.5 + (i - 2) * 30,
-        amplitude: 10 + Math.random() * 10,  // Higher amplitude
-        speed: 0.03 + Math.random() * 0.02,  // Slightly faster waves
-        offset: Math.random() * Math.PI * 2
-      })),
-      pulseRings: [],
-      lightSpots: Array.from({ length: 20 }, () => ({
-        x: randomBetween(w * 0.25, w * 0.75), // More centered horizontally
-        y: randomBetween(h * 0.45, h * 0.85), // More centered vertically
-        size: randomBetween(2, 9),
-        speed: randomBetween(0.05, 0.4), // Very slow movement
-        alpha: randomBetween(0.2, 0.4) // Subtle visibility
-      })),
-      lightningBolts: [],
-      localFlashes: [],
-      animalShadows: [
-        { 
-          x: w * 0.3, 
-          y: h * 0.75, 
-          width: randomBetween(80, 140),  // Even larger
-          height: randomBetween(25, 45),  // Even larger
-          opacity: 0.1,  // Start with some opacity
-          velocityX: randomBetween(-0.2, 0.2),
-          active: true,  // Start active
-          glimpseTimer: 1000,  // Ready to show glimpses quickly
-          glimpseType: 'eyes'  // Start with eyes which are most visible
-        },
-        { 
-          x: w * 0.6, 
-          y: h * 0.8, 
-          width: randomBetween(80, 140),  // Even larger
-          height: randomBetween(25, 45),  // Even larger
-          opacity: 0.1,  // Start with some opacity
-          velocityX: randomBetween(-0.2, 0.2),
-          active: true,  // Start active
-          glimpseTimer: 1500,  // Ready to show glimpses quickly
-          glimpseType: 'silhouette'  // Start with silhouette
-        },
-        { 
-          x: w * 0.8, 
-          y: h * 0.7, 
-          width: randomBetween(80, 140),  // Even larger
-          height: randomBetween(25, 45),  // Even larger
-          opacity: 0.1,  // Start with some opacity
-          velocityX: randomBetween(-0.2, 0.2),
-          active: true,  // Start active
-          glimpseTimer: 500,  // Ready to show glimpses quickly
-          glimpseType: 'movement'  // Start with movement
-        }
-      ],
-      eyePairs: [],
-      activeEyePositions: [],
-      lastEyePositionChange: 0,
-      eyeFadeTimestamp: 0,
-      thunderFlashLeft: false,
-      thunderZigzag: [],
-      // Track active sound priorities
-      activationTimestamps: {},
-      visualPriorities: [],
-      fireLastRendered: false,
-      nextEyeReturnDelay: 0, // Add a delay timestamp for when eyes should return
-    };
-
-    setParticles(newParticles);
-    
-    // Set nextThunder to 1 second from now
-    setNextTriggers({
-      nextThunder: Date.now() + 1000,
-      nextWaterRipple: Date.now() + randomBetween(2000, 4000),
-      nextRustle: Date.now() + randomBetween(5000, 10000),
-      nextPulseRing: Date.now() + randomBetween(4000, 8000)
-    });
-
-  }, [canvasRef]);
-
-  // Update refs when state changes
-  useEffect(() => {
-    particlesRef.current = particles;
-  }, [particles]);
-  
-  useEffect(() => {
-    nextTriggersRef.current = nextTriggers;
-  }, [nextTriggers]);
-  
-  useEffect(() => {
-    flashAlphaRef.current = flashAlpha;
-  }, [flashAlpha]);
-
-  // Check for sound changes and update activation timestamps
-  useEffect(() => {
-    const now = Date.now();
-    
-    // Create a new Set to track changes
-    const updatedSounds = new Set<SoundType>();
-    
-    // Process newly activated sounds
-    for (const sound of activeSounds) {
-      if (!prevActiveSoundsRef.current.has(sound)) {
-        updatedSounds.add(sound);
-        
-        // Update activation timestamp for new sound
-        setParticles(prev => ({
-          ...prev,
-          activationTimestamps: {
-            ...prev.activationTimestamps,
-            [sound]: now
-          }
-        }));
-      }
-    }
-    
-    // If any sounds were newly activated, update priorities
-    if (updatedSounds.size > 0 || activeSounds.size !== prevActiveSoundsRef.current.size) {
-      updateVisualPriorities();
-    }
-    
-    // Update prev sounds reference
-    prevActiveSoundsRef.current = new Set(activeSounds);
-  }, [activeSounds]);
-
-  // Function to update visual priorities based on intensity and activation time
-  const updateVisualPriorities = () => {
-    const now = Date.now();
-    const soundEntries: [SoundType, number, number][] = [];
-    
-    // Get current timestamps or create new ones for active sounds
-    const timestamps = particlesRef.current?.activationTimestamps ? 
-      {...particlesRef.current.activationTimestamps} : {};
-    
-    // Create entries with [sound, intensity, timestamp]
-    for (const sound of activeSounds) {
-      // If no timestamp exists, create one now
-      if (!timestamps[sound]) {
-        timestamps[sound] = now;
-      }
-      
-      soundEntries.push([sound, soundValues[sound], timestamps[sound]]);
-    }
-    
-    // Sort primarily by recency (newer sounds first)
-    soundEntries.sort((a, b) => {
-      // Extract values for clarity
-      const intensityA = a[1];
-      const intensityB = b[1];
-      const timestampA = a[2];
-      const timestampB = b[2];
-      
-      // Always prioritize by recency (timestamp)
-      return timestampB - timestampA;
-    });
-    
-    // Extract just the sound types in priority order
-    const priorityOrder = soundEntries.map(entry => entry[0]);
-    
-    console.log('[DEBUG] Sound priorities updated:');
-    soundEntries.forEach(entry => {
-      const [sound, intensity, timestamp] = entry;
-      const age = Math.floor((now - timestamp) / 1000); // age in seconds
-      console.log(`[DEBUG] ${sound}: intensity=${intensity.toFixed(2)}, age=${age}s`);
-    });
-    
-    // Update state with new timestamps and priorities
-    setParticles(prev => ({
-      ...prev,
-      activationTimestamps: timestamps,
-      visualPriorities: priorityOrder
-    }));
-  };
-
-  // Helper function to get the top N priority sounds
-  const getTopPrioritySounds = (count: number = 3) => {
-    const priorities = particlesRef.current?.visualPriorities || [];
-    return priorities.slice(0, count);
-  };
-
-  // Helper function to check if a sound is in the top N priorities
-  const isTopPrioritySound = (sound: SoundType, count: number = 3) => {
-    const topSounds = getTopPrioritySounds(count);
-    return topSounds.includes(sound);
-  };
-
-  // Main animation loop
+  // Initialize particles based on canvas size - moved inside the resize handler
   useEffect(() => {
     if (!canvasRef.current) return;
     console.log('[DEBUG] Starting animation loop');
@@ -329,6 +92,133 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
+
+    // Track if we've initialized particles with proper dimensions
+    let hasInitializedWithProperSize = false;
+    
+    // Initialize all particles based on current dimensions
+    const initializeParticles = (w: number, h: number) => {
+      console.log(`[DEBUG] Initializing particles - Canvas display size: ${w}x${h}, DPR: ${window.devicePixelRatio || 1}`);
+      
+      // Only initialize if dimensions are reasonable (prevents tiny initial sizes)
+      if (w < 200 || h < 200) {
+        console.log(`[DEBUG] Canvas too small for initialization: ${w}x${h}, will try again later`);
+        return false; // Failed to initialize with proper dimensions
+      }
+      
+      // Reset all particles with increased quantities and sizes
+      const newParticles = {
+        windParticles: Array.from({ length: 50 }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h * 0.7, // Distribute across most of the height
+          speed: 0.4 + Math.random() * 0.5,
+          radius: 1.5 + Math.random() * 3
+        })),
+        raindrops: Array.from({ length: 100 }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          speed: 1.5 + Math.random() * 1.5,
+          length: 15 + Math.random() * 15
+        })),
+        ripples: [],
+        birds: Array.from({ length: 8 }, () => ({
+          x: randomBetween(-50, w),
+          y: randomBetween(0, h * 0.3),
+          dx: 0.8 + Math.random() * 0.7,
+          dy: randomBetween(-0.3, 0.3)
+        })),
+        fireflies: Array.from({ length: 25 }, () => ({
+          x: randomBetween(0, w),
+          y: randomBetween(h * 0.4, h * 0.8),
+          alpha: 0,
+          timer: Math.random() * 7000,
+          pulseInterval: randomBetween(2000, 5000)
+        })),
+        rustles: [
+          { x: 50, y: randomBetween(h * 0.2, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
+          { x: w - 100, y: randomBetween(h * 0.3, h * 0.5), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
+          { x: w/2 - 150, y: randomBetween(h * 0.2, h * 0.4), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
+          { x: w/2 + 100, y: randomBetween(h * 0.25, h * 0.45), timer: 0, nextAt: randomBetween(5000, 10000), active: false },
+          { x: w/3, y: randomBetween(h * 0.2, h * 0.4), timer: 0, nextAt: randomBetween(5000, 10000), active: false }
+        ],
+        embers: Array.from({ length: 25 }, () => ({
+          x: w / 2 + randomBetween(-50, 50),
+          y: h - 50 + Math.random() * 20,
+          speed: 0.5 + Math.random() * 0.8,
+          size: 2 + Math.random() * 3,
+          color: `rgba(${255}, ${150 + Math.floor(Math.random() * 105)}, ${50 + Math.floor(Math.random() * 50)}, ${0.5 + Math.random() * 0.5})`
+        })),
+        ambientWaves: Array.from({ length: 5 }, (_, i) => ({
+          x: 0,
+          y: h * 0.5 + (i - 2) * 30,
+          amplitude: 10 + Math.random() * 10,
+          speed: 0.03 + Math.random() * 0.02,
+          offset: Math.random() * Math.PI * 2
+        })),
+        pulseRings: [],
+        lightSpots: Array.from({ length: 20 }, () => ({
+          x: randomBetween(w * 0.25, w * 0.75),
+          y: randomBetween(h * 0.45, h * 0.85),
+          size: randomBetween(2, 9),
+          speed: randomBetween(0.05, 0.4),
+          alpha: randomBetween(0.2, 0.4)
+        })),
+        lightningBolts: [],
+        localFlashes: [],
+        animalShadows: [
+          { 
+            x: w * 0.3, 
+            y: h * 0.75, 
+            width: randomBetween(80, 140),
+            height: randomBetween(25, 45),
+            opacity: 0.1,
+            velocityX: randomBetween(-0.2, 0.2),
+            active: true,
+            glimpseTimer: 1000,
+            glimpseType: 'eyes'
+          },
+          { 
+            x: w * 0.6, 
+            y: h * 0.8, 
+            width: randomBetween(80, 140),
+            height: randomBetween(25, 45),
+            opacity: 0.1,
+            velocityX: randomBetween(-0.2, 0.2),
+            active: true,
+            glimpseTimer: 1500,
+            glimpseType: 'silhouette'
+          },
+          { 
+            x: w * 0.8, 
+            y: h * 0.7, 
+            width: randomBetween(80, 140),
+            height: randomBetween(25, 45),
+            opacity: 0.1,
+            velocityX: randomBetween(-0.2, 0.2),
+            active: true,
+            glimpseTimer: 500,
+            glimpseType: 'movement'
+          }
+        ],
+        eyePairs: [],
+        activeEyePositions: [],
+        lastEyePositionChange: 0,
+        eyeFadeTimestamp: 0,
+        thunderFlashLeft: false,
+        thunderZigzag: [],
+        // Track active sound priorities
+        activationTimestamps: {},
+        visualPriorities: [],
+        fireLastRendered: false,
+        nextEyeReturnDelay: 0
+      };
+      
+      // Update state and ref
+      setParticles(newParticles);
+      particlesRef.current = newParticles;
+      console.log(`[DEBUG] Particles initialized successfully with dimensions ${w}x${h}`);
+      return true;
+    };
 
     // Set canvas to match parent dimensions with proper DPR handling
     const resizeCanvas = () => {
@@ -356,8 +246,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         const w = parentRect.width;
         const h = parentRect.height;
         
-        // Update particle positions that depend on canvas dimensions
-        if (particlesRef.current) {
+        // Initialize particles if this is the first time with proper dimensions
+        if (!hasInitializedWithProperSize) {
+          hasInitializedWithProperSize = initializeParticles(w, h);
+        } else if (particlesRef.current) {
           // Update positions for eye pairs
           const eyePositions = [
             { x: w * 0.12, y: h * 0.55 },  // left upper
@@ -394,7 +286,14 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             animalShadows: updatedShadows
           }));
           
-          console.log(`[DEBUG] Updated animal shadows after resize`);
+          // If the size changed dramatically, reinitialize all particles
+          if (Math.abs(w - (particlesRef.current.windParticles[0]?.x || 0)) > w * 0.5 ||
+              Math.abs(h - (particlesRef.current.fireflies[0]?.y || 0)) > h * 0.5) {
+            console.log(`[DEBUG] Canvas size changed significantly, reinitializing all particles`);
+            initializeParticles(w, h);
+          }
+          
+          console.log(`[DEBUG] Updated particle positions after resize`);
         }
       } else {
         // Fallback to window dimensions if no parent
@@ -407,6 +306,11 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         console.log(`[DEBUG] Canvas fallback size: ${canvas.width}x${canvas.height} (window: ${window.innerWidth}x${window.innerHeight}, DPR: ${dpr})`);
         
         ctx.scale(dpr, dpr);
+        
+        // Initialize with window dimensions if not yet initialized
+        if (!hasInitializedWithProperSize) {
+          hasInitializedWithProperSize = initializeParticles(window.innerWidth, window.innerHeight);
+        }
       }
     };
 
@@ -415,11 +319,22 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     
     // More robust approach: multiple resize attempts with increasing delays
     // This helps with various Vercel deployment scenarios
-    const delayedResizes = [100, 500, 1000, 2000];
-    delayedResizes.forEach(delay => {
+    const delayedResizes = [100, 500, 1000, 2000, 3000, 5000];
+    delayedResizes.forEach((delay, index) => {
       setTimeout(() => {
-        console.log(`[DEBUG] Delayed resize after ${delay}ms`);
+        console.log(`[DEBUG] Delayed resize #${index + 1} after ${delay}ms`);
         resizeCanvas();
+        
+        // Force reinitialize particles on the last attempt if still not initialized with proper dimensions
+        if (!hasInitializedWithProperSize && index === delayedResizes.length - 1) {
+          console.log(`[DEBUG] Forcing particle initialization after all resize attempts`);
+          const parentRect = canvas.parentElement?.getBoundingClientRect();
+          if (parentRect && parentRect.width > 200 && parentRect.height > 200) {
+            hasInitializedWithProperSize = initializeParticles(parentRect.width, parentRect.height);
+          } else {
+            hasInitializedWithProperSize = initializeParticles(window.innerWidth, window.innerHeight);
+          }
+        }
       }, delay);
     });
 
@@ -457,6 +372,12 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       frameCountRef.current++;
       if (frameCountRef.current % logIntervalRef.current === 0) {
         console.log(`[DEBUG] Frame #${frameCountRef.current}, dt: ${dt.toFixed(2)}ms, canvas: ${w}x${h}`);
+        
+        // If particles not initialized with proper dimensions yet, try again
+        if (!hasInitializedWithProperSize && w > 200 && h > 200) {
+          console.log(`[DEBUG] Late initialization of particles in animation frame`);
+          hasInitializedWithProperSize = initializeParticles(w, h);
+        }
       }
       
       // Check for sound changes
