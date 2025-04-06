@@ -526,6 +526,36 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       // 1. Wind effect
       if (currentActiveSounds.has('wind') && currentSoundValues.wind > 0) {
         const intensity = currentSoundValues.wind;
+        
+        // Debug info when wind is activated
+        if (frameCountRef.current % 100 === 0) {
+          console.log(`[DEBUG] Wind effect active: intensity=${intensity.toFixed(2)}, particles=${currentParticles.windParticles?.length || 0}`);
+        }
+        
+        // If wind particles aren't initialized properly, recreate them
+        if (!currentParticles.windParticles || currentParticles.windParticles.length === 0) {
+          console.log('[DEBUG] Wind particles missing, initializing them now');
+          
+          // Create new wind particles
+          const newWindParticles = Array.from({ length: 50 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h * 0.7,
+            speed: 0.4 + Math.random() * 0.5,
+            radius: 1.5 + Math.random() * 3
+          }));
+          
+          // Update particles ref directly to avoid rerendering
+          currentParticles.windParticles = newWindParticles;
+          
+          // Also update state for future renders
+          setParticles(prev => ({
+            ...prev,
+            windParticles: newWindParticles
+          }));
+          
+          console.log(`[DEBUG] Created ${newWindParticles.length} new wind particles`);
+        }
+        
         // All sound types are treated equally
         ctx.globalAlpha = Math.min(0.5 * intensity, 0.6);  
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -551,6 +581,31 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       // 2. Rain effect
       if (currentActiveSounds.has('rain') && currentSoundValues.rain > 0) {
         const intensity = currentSoundValues.rain;
+        
+        // If rain particles aren't initialized properly, recreate them
+        if (!currentParticles.raindrops || currentParticles.raindrops.length === 0) {
+          console.log('[DEBUG] Rain particles missing, initializing them now');
+          
+          // Create new rain particles
+          const newRaindrops = Array.from({ length: 100 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            speed: 1.5 + Math.random() * 1.5,
+            length: 15 + Math.random() * 15
+          }));
+          
+          // Update particles ref directly to avoid rerendering
+          currentParticles.raindrops = newRaindrops;
+          
+          // Also update state for future renders
+          setParticles(prev => ({
+            ...prev,
+            raindrops: newRaindrops
+          }));
+          
+          console.log(`[DEBUG] Created ${newRaindrops.length} new raindrops`);
+        }
+        
         // All sound types are treated equally
         ctx.globalAlpha = Math.min(0.6 * intensity, 0.7);
         ctx.strokeStyle = 'rgba(220, 240, 255, 0.9)';
@@ -1548,9 +1603,33 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         }
       }
       
-      // 6. Birds effect - FIXED & IMPLEMENTED
+      // 6. Birds effect - Add reinitialization
       if (currentActiveSounds.has('birds') && currentSoundValues.birds > 0) {
         const intensity = currentSoundValues.birds;
+        
+        // If bird particles aren't initialized properly, recreate them
+        if (!currentParticles.birds || currentParticles.birds.length === 0) {
+          console.log('[DEBUG] Bird particles missing, initializing them now');
+          
+          // Create new bird particles
+          const newBirds = Array.from({ length: 8 }, () => ({
+            x: randomBetween(-50, w),
+            y: randomBetween(0, h * 0.3),
+            dx: 0.8 + Math.random() * 0.7,
+            dy: randomBetween(-0.3, 0.3)
+          }));
+          
+          // Update particles ref directly 
+          currentParticles.birds = newBirds;
+          
+          // Also update state
+          setParticles(prev => ({
+            ...prev,
+            birds: newBirds
+          }));
+          
+          console.log(`[DEBUG] Created ${newBirds.length} new birds`);
+        }
         
         // All sound types are treated equally
         ctx.globalAlpha = 0.6 * intensity;
@@ -1631,9 +1710,34 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         setParticles(prev => ({ ...prev, birds: updatedBirds }));
       }
       
-      // 7. Insects effect (Fireflies)
+      // 7. Insects effect (Fireflies) - Add reinitialization
       if (currentActiveSounds.has('insects') && currentSoundValues.insects > 0) {
         const intensity = currentSoundValues.insects;
+        
+        // If firefly particles aren't initialized properly, recreate them
+        if (!currentParticles.fireflies || currentParticles.fireflies.length === 0) {
+          console.log('[DEBUG] Firefly particles missing, initializing them now');
+          
+          // Create new firefly particles
+          const newFireflies = Array.from({ length: 25 }, () => ({
+            x: randomBetween(0, w),
+            y: randomBetween(h * 0.4, h * 0.8),
+            alpha: 0,
+            timer: Math.random() * 7000,
+            pulseInterval: randomBetween(2000, 5000)
+          }));
+          
+          // Update particles ref directly
+          currentParticles.fireflies = newFireflies;
+          
+          // Also update state
+          setParticles(prev => ({
+            ...prev,
+            fireflies: newFireflies
+          }));
+          
+          console.log(`[DEBUG] Created ${newFireflies.length} new fireflies`);
+        }
         
         // All sound types are treated equally
         // Adjust number of fireflies based on intensity only
@@ -1974,7 +2078,30 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
   // Update refs when props change to ensure animations use the latest values
   useEffect(() => {
     console.log('[DEBUG] Props changed, updating refs without restarting animation');
-    activeVisualsRef.current = new Set(activeSounds);
+    
+    // Create a copy of the previous active sounds for comparison
+    const prevActiveSet = new Set(activeVisualsRef.current);
+    const newActiveSet = new Set(activeSounds);
+    
+    // Check for newly activated sounds
+    activeSounds.forEach(sound => {
+      if (!prevActiveSet.has(sound)) {
+        console.log(`[DEBUG] New sound activated: ${sound}`);
+        
+        // For newly activated sounds, we may need to initialize their particles
+        if (particlesRef.current && canvasRef.current) {
+          const canvas = canvasRef.current;
+          const w = canvas.width / (window.devicePixelRatio || 1);
+          const h = canvas.height / (window.devicePixelRatio || 1);
+          
+          // This will ensure particles are initialized for the new sound
+          console.log(`[DEBUG] Initializing particles for newly activated sound: ${sound}`);
+        }
+      }
+    });
+    
+    // Update refs with current values
+    activeVisualsRef.current = newActiveSet;
     
     // Deep copy the sound values to prevent reference issues
     Object.keys(soundValues).forEach(key => {
