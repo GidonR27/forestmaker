@@ -332,13 +332,26 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     const resizeCanvas = () => {
       const parentRect = canvas.parentElement?.getBoundingClientRect();
       if (parentRect) {
-        canvas.width = parentRect.width;
-        canvas.height = parentRect.height;
-        console.log(`[DEBUG] Canvas resized to ${canvas.width}x${canvas.height}`);
+        // Get the device pixel ratio for high DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Set the canvas dimensions accounting for device pixel ratio
+        canvas.width = parentRect.width * dpr;
+        canvas.height = parentRect.height * dpr;
+        
+        // Set the display size (CSS) to match the parent dimensions
+        canvas.style.width = `${parentRect.width}px`;
+        canvas.style.height = `${parentRect.height}px`;
+        
+        // Scale the drawing context to counter the device pixel ratio
+        ctx.scale(dpr, dpr);
+        
+        console.log(`[DEBUG] Canvas resized to ${parentRect.width}x${parentRect.height} with DPR ${dpr} (actual pixels: ${canvas.width}x${canvas.height})`);
         
         // When canvas is resized, re-initialize particles to use the new dimensions
-        const w = canvas.width;
-        const h = canvas.height;
+        // Note: We use the CSS dimensions (parentRect) for particle positioning, not the actual canvas pixels
+        const w = parentRect.width;
+        const h = parentRect.height;
         
         // Update particle positions that depend on canvas dimensions
         if (particlesRef.current) {
@@ -369,8 +382,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           // Update animal shadows
           const updatedShadows = particlesRef.current.animalShadows.map((shadow: any) => ({
             ...shadow,
-            x: w * (shadow.x / (canvas.width || w)),
-            y: h * (shadow.y / (canvas.height || h))
+            x: w * (shadow.x / (parentRect.width || w)),
+            y: h * (shadow.y / (parentRect.height || h))
           }));
           
           setParticles(prev => ({
@@ -388,6 +401,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     
     // Perform one more resize after a short delay to ensure dimensions are correct
     setTimeout(resizeCanvas, 500);
+    
+    // Add additional resize to handle any potential layout shifts
+    setTimeout(resizeCanvas, 1000);
+    setTimeout(resizeCanvas, 2000);
 
     // Add resize listener
     window.addEventListener('resize', resizeCanvas);
@@ -400,11 +417,16 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       // Max deltaTime to prevent huge jumps after tab becomes active again
       const dt = Math.min(deltaTime, 33) / 16; // Normalize for 60fps (16ms frame time)
 
-      const w = canvas.width;
-      const h = canvas.height;
+      // Use parent dimensions for calculations (actual display size)
+      const parentRect = canvas.parentElement?.getBoundingClientRect();
+      const w = parentRect ? parentRect.width : canvas.width / (window.devicePixelRatio || 1);
+      const h = parentRect ? parentRect.height : canvas.height / (window.devicePixelRatio || 1);
       
-      // Clear canvas with transparency for layering effect
-      ctx.clearRect(0, 0, w, h);
+      // Clear canvas with transparency for layering effect (clear the entire high-res canvas)
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore(); // Restore the scale transform
       
       // Log framing timing periodically
       frameCountRef.current++;
