@@ -77,7 +77,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     nextThunder: Date.now(),
     nextWaterRipple: Date.now(),
     nextRustle: Date.now(),
-    nextPulseRing: Date.now()
+    nextPulseRing: Date.now(),
+    nextMammalEyes: Date.now() // Add a trigger for mammal eyes
   });
   
   // Flash alpha for thunder
@@ -236,7 +237,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         nextThunder: Date.now() + 1000,
         nextWaterRipple: Date.now() + randomBetween(2000, 4000),
         nextRustle: Date.now() + randomBetween(5000, 10000),
-        nextPulseRing: Date.now() + randomBetween(4000, 8000)
+        nextPulseRing: Date.now() + randomBetween(4000, 8000),
+        nextMammalEyes: Date.now() // Initialize mammal eyes trigger
       });
       
       console.log(`[DEBUG] Particles initialized successfully with dimensions ${w}x${h}`);
@@ -934,9 +936,9 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 eyePairs: Array(initialNumPairs).fill(0).map((_, i) => ({
                   opacity: 0.01, // Start with very low opacity for proper fade-in
                   blinkTimer: 3000 + Math.random() * 2000,
-                  size: 0.64 + Math.random() * 0.32, // 20% smaller (0.8 -> 0.64, 0.4 -> 0.32)
-                  behavior: i % 2 === 0 ? 'cautious' : 'curious', // Alternate between behaviors
-                  blinkFrequency: i % 2 === 0 ? 'frequent' : 'rare', // Different blink patterns
+                  size: 0.64 + Math.random() * 0.32,
+                  behavior: i % 2 === 0 ? 'cautious' : 'curious',
+                  blinkFrequency: i % 2 === 0 ? 'frequent' : 'rare',
                   lastBlink: 0
                 })),
                 eyeFadeTimestamp: Date.now(), // Start at beginning of cycle for proper fade-in
@@ -973,34 +975,31 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           // or if no positions exist yet
           const readyForNewPositions = 
             !currentParticles.activeEyePositions || 
-            (secondsSincePositionChange > 9.5 && now >= (currentParticles.nextEyeReturnDelay || 0));
+            (secondsSincePositionChange > 9.5 && now >= (currentTriggers.nextMammalEyes || 0));
           
           // Debug the delay status periodically
           if (frameCountRef.current % 100 === 0) {
-            const delayRemaining = currentParticles.nextEyeReturnDelay ? 
-              Math.max(0, (currentParticles.nextEyeReturnDelay - now) / 1000) : 0;
+            const delayRemaining = currentTriggers.nextMammalEyes ? 
+              Math.max(0, (currentTriggers.nextMammalEyes - now) / 1000) : 0;
             console.log(`[DEBUG] Mammal eyes status - secondsSinceChange: ${secondsSincePositionChange.toFixed(1)}s, delay remaining: ${delayRemaining.toFixed(1)}s, readyForNew: ${readyForNewPositions}`);
           }
           
-          // CRITICAL: If we're at the threshold for new positions but no delay is set, force one
-          // This ensures a delay happens on every cycle, even if the initial one fails
-          if (secondsSincePositionChange > 9.0 && secondsSincePositionChange < 9.5 && 
-              (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
+          // If we're near the end of a cycle but no delay is set, set it now
+          if (isFadingOut && secondsSincePositionChange > 8.5 && secondsSincePositionChange < 9.0 && 
+              now >= (currentTriggers.nextMammalEyes || 0)) {
             const randomDelay = now + randomBetween(4000, 10000);
-            console.log(`[DEBUG] Critical timing point reached with no delay. Setting mandatory delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
+            console.log(`[DEBUG] Setting mammal eye delay of ${((randomDelay - now)/1000).toFixed(1)}s during fade out`);
             
-            setParticles(prev => {
-              const newState = {
+            setNextTriggers(prev => {
+              const newTriggers = {
                 ...prev,
-                nextEyeReturnDelay: randomDelay
+                nextMammalEyes: randomDelay
               };
-              // Update ref immediately
+              // Important: Update the ref immediately to ensure animation frame has latest value
               setTimeout(() => {
-                if (particlesRef.current) {
-                  particlesRef.current.nextEyeReturnDelay = randomDelay;
-                }
+                nextTriggersRef.current = newTriggers;
               }, 0);
-              return newState;
+              return newTriggers;
             });
           }
           
@@ -1040,33 +1039,25 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               eyeFadeTimestamp: now, // Reset for accurate fade-in
             };
             
-            // Save when we last created new eye positions
-            // This is critical for the delay logic to work
-            const lastPositionCreationTime = Date.now();
+            // Schedule next appearance with delay
+            const randomDelay = now + randomBetween(4000, 10000);
+            console.log(`[DEBUG] Setting next mammal eyes appearance delay: ${((randomDelay - now)/1000).toFixed(1)}s`);
             
-            // Check if this isn't the first time we're creating positions
-            if (lastEyePositionTimeRef.current > 0) {
-              // If this isn't the first time we're creating positions
-              // We need to set a delay for the next time
-              const timeSinceLastCreation = lastPositionCreationTime - lastEyePositionTimeRef.current;
-              
-              // Only set a new delay if we didn't just recover from a reload and 
-              // if the time between positions is less than 12 seconds
-              // (indicating we didn't already have a delay)
-              if (timeSinceLastCreation < 12000) {
-                const randomDelay = now + randomBetween(4000, 10000);
-                console.log(`[DEBUG] IMPORTANT: Setting next eye delay of ${((randomDelay - now)/1000).toFixed(1)}s after creating new positions`);
-                
-                // Add delay to our update object - THIS IS CRITICAL
-                particleUpdates.nextEyeReturnDelay = randomDelay;
-                
-                // This ensures the next cycle will have the delay
-                needsDelayNextCycleRef.current = true;
-              }
-            }
+            // Set the next trigger time for mammal eyes - similar to how thunder and water ripples work
+            setNextTriggers(prev => {
+              const newTriggers = {
+                ...prev,
+                nextMammalEyes: randomDelay
+              };
+              // Update ref immediately
+              setTimeout(() => {
+                nextTriggersRef.current = newTriggers;
+              }, 0);
+              return newTriggers;
+            });
             
-            // Update our timestamp
-            lastEyePositionTimeRef.current = lastPositionCreationTime;
+            // Update our timestamp for tracking
+            lastEyePositionTimeRef.current = Date.now();
             
             console.log(`[DEBUG] Particle update with delayNextCycle=${needsDelayNextCycleRef.current}, delay=${particleUpdates.nextEyeReturnDelay || 0}`);
             
@@ -1202,24 +1193,22 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               
               // Detect when eyes have almost completely faded out (opacity very low)
               // This is the right moment to set the delay for the next appearance
-              if (easedProgress < 0.1 && (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
+              if (easedProgress < 0.1 && now >= (currentTriggers.nextMammalEyes || 0)) {
                 // Set the delay right when eyes fade out completely
                 const randomDelay = now + randomBetween(4000, 10000);
                 console.log(`[DEBUG] Eyes almost completely faded out. Setting next appearance delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
                 
-                // Directly update the delay state and ref to ensure it's respected
-                setParticles(prev => {
-                  const newState = {
+                // Set the next trigger time for mammal eyes
+                setNextTriggers(prev => {
+                  const newTriggers = {
                     ...prev,
-                    nextEyeReturnDelay: randomDelay
+                    nextMammalEyes: randomDelay
                   };
-                  // Important: immediately update the ref value
+                  // Update ref immediately
                   setTimeout(() => {
-                    if (particlesRef.current) {
-                      particlesRef.current.nextEyeReturnDelay = randomDelay;
-                    }
+                    nextTriggersRef.current = newTriggers;
                   }, 0);
-                  return newState;
+                  return newTriggers;
                 });
               }
               
