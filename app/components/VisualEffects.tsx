@@ -972,6 +972,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             console.log(`[DEBUG] Mammal eyes status - secondsSinceChange: ${secondsSincePositionChange.toFixed(1)}s, delay remaining: ${delayRemaining.toFixed(1)}s, readyForNew: ${readyForNewPositions}`);
           }
           
+          // Create refs to track state across renders (if they don't exist yet)
+          const lastEyePositionTimeRef = useRef<number>(0);
+          const needsDelayNextCycleRef = useRef<boolean>(false);
+          
           if (readyForNewPositions) {
             // Shuffle positions array to get random positions
             const shuffled = [...positions].sort(() => 0.5 - Math.random());
@@ -1000,38 +1004,71 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               };
             });
             
-            setParticles(prev => ({
-              ...prev,
+            // Create a new object to update particles with
+            const particleUpdates: Partial<typeof currentParticles> = {
               activeEyePositions: activePositions,
               eyePairs: newEyePairs,
               lastEyePositionChange: frameCountRef.current,
-              // Store the timestamp when the change happens to determine fade direction
               eyeFadeTimestamp: now, // Reset for accurate fade-in
-              // Don't reset the delay here, allow eyes to appear immediately after first fade out
-              // We'll set the delay after these eyes fade out
+            };
+            
+            // Save when we last created new eye positions
+            // This is critical for the delay logic to work
+            const lastPositionCreationTime = Date.now();
+            
+            // Check if this isn't the first time we're creating positions
+            if (lastEyePositionTimeRef.current > 0) {
+              // If this isn't the first time we're creating positions
+              // We need to set a delay for the next time
+              const timeSinceLastCreation = lastPositionCreationTime - lastEyePositionTimeRef.current;
+              
+              // Only set a new delay if we didn't just recover from a reload and 
+              // if the time between positions is less than 12 seconds
+              // (indicating we didn't already have a delay)
+              if (timeSinceLastCreation < 12000) {
+                const randomDelay = now + randomBetween(4000, 10000);
+                console.log(`[DEBUG] IMPORTANT: Setting next eye delay of ${((randomDelay - now)/1000).toFixed(1)}s after creating new positions`);
+                
+                // Add delay to our update object
+                particleUpdates.nextEyeReturnDelay = randomDelay;
+                
+                // This ensures the next cycle will have the delay
+                needsDelayNextCycleRef.current = true;
+              }
+            }
+            
+            // Update our timestamp
+            lastEyePositionTimeRef.current = lastPositionCreationTime;
+            
+            console.log(`[DEBUG] Particle update with delayNextCycle=${needsDelayNextCycleRef.current}, delay=${particleUpdates.nextEyeReturnDelay || 0}`);
+            
+            // Apply all our updates together
+            setParticles(prev => ({
+              ...prev,
+              ...particleUpdates
             }));
             
             console.log('[DEBUG] New mammal eyes created with starting opacity 0.01 for proper fade-in');
           } else if (secondsSincePositionChange > 9.5) {
+            // If we need to set a delay for the next cycle, do it now
+            if (needsDelayNextCycleRef.current && (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
+              const randomDelay = now + randomBetween(4000, 10000);
+              console.log(`[DEBUG] Setting delayed random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
+              
+              // Set the delay and mark that we've handled this cycle
+              needsDelayNextCycleRef.current = false;
+              
+              setParticles(prev => ({
+                ...prev,
+                nextEyeReturnDelay: randomDelay
+              }));
+            }
+            
             // If we're past the fade out but waiting for delay, log this
             if (frameCountRef.current % 100 === 0) {
               const timeRemaining = currentParticles.nextEyeReturnDelay ? 
                 ((currentParticles.nextEyeReturnDelay - now) / 1000).toFixed(1) : 'unknown';
               console.log(`[DEBUG] Eyes faded out, waiting ${timeRemaining}s before new positions`);
-            }
-            
-            // Check if we should start a new cycle after the fade out is complete
-            // Only create new eyes if we haven't set a delay or the delay has elapsed
-            if (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0) {
-              // Set a random delay before showing new eyes (between 4-10 seconds)
-              const randomDelay = now + randomBetween(4000, 10000);
-              console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
-              
-              // Set the delay directly without setTimeout to avoid race conditions
-              setParticles(prev => ({
-                ...prev,
-                nextEyeReturnDelay: randomDelay
-              }));
             }
           }
           
