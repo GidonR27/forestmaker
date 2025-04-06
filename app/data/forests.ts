@@ -276,7 +276,7 @@ export const forests: Forest[] = [
     location: 'Poland/Belarus',
     description: 'One of the last and largest remaining parts of the immense primeval forest that once stretched across the European Plain. Home to the European bison.',
     vibe: 'ancient, mystical, primeval, dense, wild',
-    imageUrl: '/assets/images/bialowieza.jpg',
+    imageUrl: '/assets/images/bialowieza_new.jpg',
     soundProfile: {
       wind: 0.4,
       rain: 0.3,
