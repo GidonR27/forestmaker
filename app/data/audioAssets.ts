@@ -45,6 +45,7 @@ export const audioAssets: Record<string, AudioAsset[]> = {
     { id: 'fire-moderate', url: '/assets/audio/fire/Moderate_fire.mp3', intensity: 'moderate' },
     { id: 'fire-strong', url: '/assets/audio/fire/Strong_fire.mp3', intensity: 'strong' }
   ],
+  // Note: Ambient audio files are now 14 seconds in duration (previously shorter)
   ambient: [
     { id: 'ambient-soft', url: '/assets/audio/ambient/Light_ambient.mp3', intensity: 'soft' },
     { id: 'ambient-moderate', url: '/assets/audio/ambient/Moderate_ambiant.mp3', intensity: 'moderate' },

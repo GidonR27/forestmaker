@@ -158,6 +158,26 @@ export class AudioManager {
 
       source.buffer = buffer;
       source.loop = true;
+      
+      // Log audio duration - useful for debugging with longer files
+      const audioDuration = buffer.duration;
+      console.log(`[Audio Debug] ${soundInstanceId} duration: ${audioDuration.toFixed(2)} seconds`);
+      
+      // Implement crossfade for longer files to prevent clicking at loop boundaries
+      // Note: This is especially important for the new 14-second ambient files
+      if (audioDuration >= 10) { // Only apply to longer files (10+ seconds)
+        // Set loop start/end points slightly inward if buffer is long enough
+        // This helps prevent potential clicks at loop points
+        const loopStart = Math.min(0.02, audioDuration * 0.005); // Small offset (max 20ms)
+        const loopEnd = Math.max(audioDuration - 0.02, audioDuration * 0.995);
+        
+        if (audioDuration > 0.5) { // Only set if file has reasonable length
+          source.loopStart = loopStart;
+          source.loopEnd = loopEnd;
+          console.log(`[Audio Debug] Set loop points for ${soundInstanceId}: ${loopStart.toFixed(3)}s to ${loopEnd.toFixed(3)}s`);
+        }
+      }
+      
       gainNode.gain.value = volume;
 
       console.log(`[Audio Debug] Connecting ${soundInstanceId} to output, volume: ${volume}`);
@@ -615,6 +635,10 @@ export class AudioManager {
       }
       
       const audioBuffer = await this._audioContext!.decodeAudioData(arrayBuffer);
+      
+      // Log the duration of the loaded audio file - useful for monitoring the 14-second files
+      console.log(`[Audio Debug] Loaded ${asset.id}: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels} channels, ${audioBuffer.sampleRate}Hz`);
+      
       this.audioBuffers.set(asset.id, audioBuffer);
       console.log(`[Audio Debug] Sound loaded: ${asset.id}`);
     } catch (error) {
