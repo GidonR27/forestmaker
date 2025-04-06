@@ -1007,7 +1007,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               lastEyePositionChange: frameCountRef.current,
               // Store the timestamp when the change happens to determine fade direction
               eyeFadeTimestamp: now, // Reset for accurate fade-in
-              nextEyeReturnDelay: 0 // Reset delay when positions change
+              // Don't reset the delay here, allow eyes to appear immediately after first fade out
+              // We'll set the delay after these eyes fade out
             }));
             
             console.log('[DEBUG] New mammal eyes created with starting opacity 0.01 for proper fade-in');
@@ -1021,19 +1022,16 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             
             // Check if we should start a new cycle after the fade out is complete
             // Only create new eyes if we haven't set a delay or the delay has elapsed
-            if (currentParticles.nextEyeReturnDelay === 0) {
+            if (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0) {
               // Set a random delay before showing new eyes (between 4-10 seconds)
               const randomDelay = now + randomBetween(4000, 10000);
               console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
               
-              // IMPORTANT: Use a separate function for this state update to ensure it's not batched with others
-              // This ensures the delay is properly set and not overwritten
-              setTimeout(() => {
-                setParticles(prev => ({
-                  ...prev,
-                  nextEyeReturnDelay: randomDelay
-                }));
-              }, 0);
+              // Set the delay directly without setTimeout to avoid race conditions
+              setParticles(prev => ({
+                ...prev,
+                nextEyeReturnDelay: randomDelay
+              }));
             }
           }
           
@@ -1124,14 +1122,28 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               }
             } else if (isFadingOut) {
               // Smoother fade-out curve using easeInOutQuad
-              const fadeProgress = (secondsSincePositionChange - 7.5) / 1.5;
-              const easedProgress = fadeProgress < 0.5 ? 
+              const fadeProgress = (secondsSincePositionChange - 7.5) / 2;
+              const easedProgress = 1 - (fadeProgress < 0.5 ? 
                 2 * fadeProgress * fadeProgress : 
-                1 - Math.pow(-2 * fadeProgress + 2, 2) / 2;
-              targetOpacity *= (1 - easedProgress);
+                1 - Math.pow(-2 * fadeProgress + 2, 2) / 2);
+              targetOpacity *= easedProgress;
               
-              if (idx === 0 && frameCountRef.current % 100 === 0) {
-                console.log(`[DEBUG] Eye fade OUT - progress: ${(easedProgress * 100).toFixed(0)}%, opacity: ${targetOpacity.toFixed(2)}`);
+              // Detect when eyes have almost completely faded out (opacity very low)
+              // This is the right moment to set the delay for the next appearance
+              if (easedProgress < 0.1 && !currentParticles.nextEyeReturnDelay) {
+                // Set the delay right when eyes fade out completely
+                const randomDelay = now + randomBetween(4000, 10000);
+                console.log(`[DEBUG] Eyes almost completely faded out. Setting next appearance delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
+                
+                setParticles(prev => ({
+                  ...prev,
+                  nextEyeReturnDelay: randomDelay
+                }));
+              }
+              
+              // Log fade out progress for debugging
+              if (Math.random() < 0.05) {
+                console.log(`[DEBUG] Eye fade OUT - progress: ${Math.round(fadeProgress * 100)}%, opacity: ${opacity.toFixed(2)}`);
               }
             }
             
