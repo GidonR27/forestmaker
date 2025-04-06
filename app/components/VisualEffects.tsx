@@ -216,6 +216,15 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       // Update state and ref
       setParticles(newParticles);
       particlesRef.current = newParticles;
+      
+      // Set nextTriggers to prevent null reference errors
+      setNextTriggers({
+        nextThunder: Date.now() + 1000,
+        nextWaterRipple: Date.now() + randomBetween(2000, 4000),
+        nextRustle: Date.now() + randomBetween(5000, 10000),
+        nextPulseRing: Date.now() + randomBetween(4000, 8000)
+      });
+      
       console.log(`[DEBUG] Particles initialized successfully with dimensions ${w}x${h}`);
       return true;
     };
@@ -1784,6 +1793,19 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       window.removeEventListener('resize', handleResize);
     };
   }, [activeSounds, soundValues]);
+
+  // Update refs when state changes to prevent null reference errors
+  useEffect(() => {
+    particlesRef.current = particles;
+  }, [particles]);
+  
+  useEffect(() => {
+    nextTriggersRef.current = nextTriggers;
+  }, [nextTriggers]);
+  
+  useEffect(() => {
+    flashAlphaRef.current = flashAlpha;
+  }, [flashAlpha]);
 
   return (
     <canvas 
