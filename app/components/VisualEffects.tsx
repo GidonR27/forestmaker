@@ -95,6 +95,21 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
 
   // Initialize particles based on canvas size - moved inside the resize handler
   useEffect(() => {
+    // Skip initialization if there's already an animation running
+    if (requestIdRef.current) {
+      console.log('[DEBUG] Animation already running, only updating active sounds');
+      
+      // Update active sounds without restarting the animation
+      activeVisualsRef.current = new Set(activeSounds);
+      
+      // Update last sound values
+      Object.keys(soundValues).forEach(key => {
+        lastSoundValuesRef.current[key as SoundType] = soundValues[key as SoundType];
+      });
+      
+      return;
+    }
+
     if (!canvasRef.current) return;
     console.log('[DEBUG] Starting animation loop');
 
@@ -495,46 +510,22 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         }
       }
       
-      // Update active visuals ref to track continuity
-      const previouslyActive = new Set(activeVisualsRef.current);
-      activeVisualsRef.current = new Set(activeSounds);
+      // Always use the latest props from refs instead of closure values
+      const currentActiveSounds = activeVisualsRef.current;
+      const currentSoundValues = lastSoundValuesRef.current;
       
-      // Log when visuals are added or removed
+      // Log when visuals are added or removed (only for debugging)
       if (frameCountRef.current % 100 === 0) {
-        Array.from(activeSounds).forEach(sound => {
-          // If a sound is newly active and wasn't active before
-          if (!previouslyActive.has(sound)) {
-            console.log(`[DEBUG] New visual effect activated: ${sound}`);
-          }
-          
-          // If sound value changed significantly
-          const prevValue = lastSoundValuesRef.current[sound] || 0;
-          const currentValue = soundValues[sound] || 0;
-          if (Math.abs(currentValue - prevValue) > 0.2) {
-            console.log(`[DEBUG] Sound value changed significantly: ${sound} ${prevValue.toFixed(2)} → ${currentValue.toFixed(2)}`);
-          }
-        });
-        
-        // Log deactivated effects
-        Array.from(previouslyActive).forEach(sound => {
-          if (!activeSounds.has(sound)) {
-            console.log(`[DEBUG] Visual effect deactivated: ${sound}`);
-          }
-        });
+        // Console logging for debugging only, can be removed in production
       }
-      
-      // Update last sound values
-      Object.keys(soundValues).forEach(key => {
-        lastSoundValuesRef.current[key as SoundType] = soundValues[key as SoundType];
-      });
       
       // Update all animations using ref values instead of direct state
       const currentParticles = particlesRef.current;
       const currentTriggers = nextTriggersRef.current;
       
       // 1. Wind effect
-      if (activeSounds.has('wind') && soundValues.wind > 0) {
-        const intensity = soundValues.wind;
+      if (currentActiveSounds.has('wind') && currentSoundValues.wind > 0) {
+        const intensity = currentSoundValues.wind;
         // All sound types are treated equally
         ctx.globalAlpha = Math.min(0.5 * intensity, 0.6);  
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -558,8 +549,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 2. Rain effect
-      if (activeSounds.has('rain') && soundValues.rain > 0) {
-        const intensity = soundValues.rain;
+      if (currentActiveSounds.has('rain') && currentSoundValues.rain > 0) {
+        const intensity = currentSoundValues.rain;
         // All sound types are treated equally
         ctx.globalAlpha = Math.min(0.6 * intensity, 0.7);
         ctx.strokeStyle = 'rgba(220, 240, 255, 0.9)';
@@ -590,8 +581,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 3. Thunder effect with zigzag-shaped flash
-      if (activeSounds.has('thunder') && soundValues.thunder > 0) {
-        const intensity = soundValues.thunder;
+      if (currentActiveSounds.has('thunder') && currentSoundValues.thunder > 0) {
+        const intensity = currentSoundValues.thunder;
         
         // All sound types are treated equally
         
@@ -763,8 +754,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 4. Water effect - SLOWER & BRIGHTER with RAINBOW HUE
-      if (activeSounds.has('water') && soundValues.water > 0) {
-        const intensity = soundValues.water;
+      if (currentActiveSounds.has('water') && currentSoundValues.water > 0) {
+        const intensity = currentSoundValues.water;
         
         // All sound types are treated equally
         
@@ -907,12 +898,12 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 5. Mammal shadows with FRONT-FACING EYES
-      if (activeSounds.has('mammals') && soundValues.mammals > 0) {
-        const intensity = soundValues.mammals;
+      if (currentActiveSounds.has('mammals') && currentSoundValues.mammals > 0) {
+        const intensity = currentSoundValues.mammals;
         
         // Add more frequent debug logging
         if (frameCountRef.current % 100 === 0) {
-          console.log(`[DEBUG] Mammal effect check - intensity: ${intensity}, has mammals: ${activeSounds.has('mammals')}`);
+          console.log(`[DEBUG] Mammal effect check - intensity: ${intensity}, has mammals: ${currentActiveSounds.has('mammals')}`);
           console.log(`[DEBUG] Mammal shadows - frame: ${frameCountRef.current}, eye positions: ${currentParticles.activeEyePositions?.length || 0}`);
         }
         
@@ -1558,8 +1549,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 6. Birds effect - FIXED & IMPLEMENTED
-      if (activeSounds.has('birds') && soundValues.birds > 0) {
-        const intensity = soundValues.birds;
+      if (currentActiveSounds.has('birds') && currentSoundValues.birds > 0) {
+        const intensity = currentSoundValues.birds;
         
         // All sound types are treated equally
         ctx.globalAlpha = 0.6 * intensity;
@@ -1641,8 +1632,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 7. Insects effect (Fireflies)
-      if (activeSounds.has('insects') && soundValues.insects > 0) {
-        const intensity = soundValues.insects;
+      if (currentActiveSounds.has('insects') && currentSoundValues.insects > 0) {
+        const intensity = currentSoundValues.insects;
         
         // All sound types are treated equally
         // Adjust number of fireflies based on intensity only
@@ -1737,8 +1728,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 8. Fire/ember effect
-      if (activeSounds.has('fire') && soundValues.fire > 0) {
-        const intensity = soundValues.fire;
+      if (currentActiveSounds.has('fire') && currentSoundValues.fire > 0) {
+        const intensity = currentSoundValues.fire;
         
         // Add debug log when fire first renders
         if (!particlesRef.current.fireLastRendered) {
@@ -1812,8 +1803,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 9. Ambient/waves effect
-      if (activeSounds.has('ambient') && soundValues.ambient > 0) {
-        const intensity = soundValues.ambient;
+      if (currentActiveSounds.has('ambient') && currentSoundValues.ambient > 0) {
+        const intensity = currentSoundValues.ambient;
         
         // All sound types are treated equally
         ctx.globalAlpha = 0.5 * intensity;
@@ -1857,8 +1848,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       }
       
       // 10. Spiritual effect - IMPROVED RAY VISIBILITY with REVERSED BRIGHTNESS
-      if (activeSounds.has('spiritual') && soundValues.spiritual > 0) {
-        const intensity = soundValues.spiritual;
+      if (currentActiveSounds.has('spiritual') && currentSoundValues.spiritual > 0) {
+        const intensity = currentSoundValues.spiritual;
         
         // All sound types are treated equally
         ctx.globalAlpha = 0.6 * intensity;
@@ -1966,24 +1957,29 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       requestIdRef.current = requestAnimationFrame(animate);
     };
 
-    // Start animation
+    // Schedule the next frame
     requestIdRef.current = requestAnimationFrame(animate);
 
-    // Cleanup on unmount
+    // Cleanup function
     return () => {
-      console.log('[DEBUG] Cleaning up animation');
-      
-      // Save state values to refs for potential reuse
-      if (lastEyePositionTimeRef.current > 0) {
-        console.log('[DEBUG] Preserving eye position time before cleanup');
-      }
-      
+      console.log('[DEBUG] Cleaning up animation effect');
       if (requestIdRef.current) {
-        window.cancelAnimationFrame(requestIdRef.current);
+        cancelAnimationFrame(requestIdRef.current);
         requestIdRef.current = null;
       }
       window.removeEventListener('resize', handleResize);
     };
+  }, []); // Empty dependency array - animation starts once and never restarts
+
+  // Update refs when props change to ensure animations use the latest values
+  useEffect(() => {
+    console.log('[DEBUG] Props changed, updating refs without restarting animation');
+    activeVisualsRef.current = new Set(activeSounds);
+    
+    // Deep copy the sound values to prevent reference issues
+    Object.keys(soundValues).forEach(key => {
+      lastSoundValuesRef.current[key as SoundType] = soundValues[key as SoundType];
+    });
   }, [activeSounds, soundValues]);
 
   // Sync state to refs whenever particles change
