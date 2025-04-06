@@ -271,7 +271,7 @@ export const forests: Forest[] = [
     name: 'Białowieża',
     location: 'Poland/Belarus',
     vibe: 'ancient, mystical, primeval, dense, wild',
-    imageUrl: '/assets/images/bialowieza.jpg',
+    imageUrl: '/assets/images/Bialowieza.jpg',
     soundProfile: {
       wind: 0.6,
       rain: 0.7,
