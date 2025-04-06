@@ -1026,8 +1026,11 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               // if the time between positions is less than 12 seconds
               // (indicating we didn't already have a delay)
               if (timeSinceLastCreation < 12000) {
-                const randomDelay = now + randomBetween(4000, 10000);
-                console.log(`[DEBUG] IMPORTANT: Setting next eye delay of ${((randomDelay - now)/1000).toFixed(1)}s after creating new positions`);
+                // Calculate a delay between 4-10 seconds from now
+                const delaySeconds = randomBetween(4, 10);
+                const randomDelay = now + (delaySeconds * 1000);
+                
+                console.log(`[DEBUG] Setting next eye delay of ${delaySeconds.toFixed(1)}s after creating new positions`);
                 
                 // Add delay to our update object
                 particleUpdates.nextEyeReturnDelay = randomDelay;
@@ -1052,8 +1055,11 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           } else if (secondsSincePositionChange > 9.5) {
             // If we need to set a delay for the next cycle, do it now
             if (needsDelayNextCycleRef.current && (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
-              const randomDelay = now + randomBetween(4000, 10000);
-              console.log(`[DEBUG] Setting delayed random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
+              // Calculate a delay between 4-10 seconds from now
+              const delaySeconds = randomBetween(4, 10);
+              const randomDelay = now + (delaySeconds * 1000);
+              
+              console.log(`[DEBUG] Setting delayed random delay of ${delaySeconds.toFixed(1)}s before new eyes appear`);
               
               // Set the delay and mark that we've handled this cycle
               needsDelayNextCycleRef.current = false;
@@ -1164,19 +1170,6 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 2 * fadeProgress * fadeProgress : 
                 1 - Math.pow(-2 * fadeProgress + 2, 2) / 2);
               targetOpacity *= easedProgress;
-              
-              // Detect when eyes have almost completely faded out (opacity very low)
-              // This is the right moment to set the delay for the next appearance
-              if (easedProgress < 0.1 && !currentParticles.nextEyeReturnDelay) {
-                // Set the delay right when eyes fade out completely
-                const randomDelay = now + randomBetween(4000, 10000);
-                console.log(`[DEBUG] Eyes almost completely faded out. Setting next appearance delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
-                
-                setParticles(prev => ({
-                  ...prev,
-                  nextEyeReturnDelay: randomDelay
-                }));
-              }
               
               // Log fade out progress for debugging
               if (Math.random() < 0.05) {
