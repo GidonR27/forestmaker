@@ -95,6 +95,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
 
     // Track if we've initialized particles with proper dimensions
     let hasInitializedWithProperSize = false;
+    // Specifically track mammal eyes initialization to prevent multiple initializations
+    let hasMammalEyesInitialized = false;
     
     // Initialize all particles based on current dimensions
     const initializeParticles = (w: number, h: number) => {
@@ -296,10 +298,34 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           }));
           
           // If the size changed dramatically, reinitialize all particles
+          // BUT preserve mammal eye state
           if (Math.abs(w - (particlesRef.current.windParticles[0]?.x || 0)) > w * 0.5 ||
               Math.abs(h - (particlesRef.current.fireflies[0]?.y || 0)) > h * 0.5) {
             console.log(`[DEBUG] Canvas size changed significantly, reinitializing all particles`);
-            initializeParticles(w, h);
+            // Store mammal eye state before reinitializing
+            const preserveMammalState = {
+              activeEyePositions: [...(particlesRef.current.activeEyePositions || [])],
+              eyePairs: [...(particlesRef.current.eyePairs || [])],
+              lastEyePositionChange: particlesRef.current.lastEyePositionChange,
+              eyeFadeTimestamp: particlesRef.current.eyeFadeTimestamp,
+              nextEyeReturnDelay: particlesRef.current.nextEyeReturnDelay
+            };
+            
+            // Initialize particles
+            const success = initializeParticles(w, h);
+            
+            // Restore mammal eye state if we had any
+            if (success && hasMammalEyesInitialized && preserveMammalState.activeEyePositions.length > 0) {
+              console.log('[DEBUG] Restoring mammal eye state after reinitialization');
+              setParticles(prev => ({
+                ...prev,
+                activeEyePositions: preserveMammalState.activeEyePositions,
+                eyePairs: preserveMammalState.eyePairs,
+                lastEyePositionChange: preserveMammalState.lastEyePositionChange,
+                eyeFadeTimestamp: preserveMammalState.eyeFadeTimestamp,
+                nextEyeReturnDelay: preserveMammalState.nextEyeReturnDelay
+              }));
+            }
           }
           
           console.log(`[DEBUG] Updated particle positions after resize`);
@@ -842,29 +868,37 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           if (!currentParticles.lastEyePositionChange) {
             console.log('[DEBUG] Initializing mammal eye positions for the first time');
             
-            // IMPORTANT: On first appearance, limit to 2 pairs maximum regardless of intensity
-            // This fixes the issue where too many eyes appear on first activation
-            const initialNumPairs = Math.min(2, numEyePairs);
-            console.log(`[DEBUG] First mammal appearance - limiting to ${initialNumPairs} eye pairs (was ${numEyePairs})`);
+            // IMPORTANT: Only initialize mammal eyes if not already initialized
+            if (!hasMammalEyesInitialized) {
+              hasMammalEyesInitialized = true;
+              console.log('[DEBUG] Setting hasMammalEyesInitialized to true');
             
-            setParticles(prev => ({
-              ...prev,
-              lastEyePositionChange: frameCountRef.current,
-              // Initialize with shuffled positions and starting with high visibility
-              activeEyePositions: [...positions].sort(() => 0.5 - Math.random()).slice(0, initialNumPairs),
-              eyePairs: Array(initialNumPairs).fill(0).map((_, i) => ({
-                opacity: 0.01, // Start with very low opacity for proper fade-in
-                blinkTimer: 3000 + Math.random() * 2000,
-                size: 0.64 + Math.random() * 0.32, // 20% smaller (0.8 -> 0.64, 0.4 -> 0.32)
-                behavior: i % 2 === 0 ? 'cautious' : 'curious', // Alternate between behaviors
-                blinkFrequency: i % 2 === 0 ? 'frequent' : 'rare', // Different blink patterns
-                lastBlink: 0
-              })),
-              eyeFadeTimestamp: Date.now(), // Start at beginning of cycle for proper fade-in
-              nextEyeReturnDelay: 0 // No initial delay
-            }));
+              // IMPORTANT: On first appearance, limit to 2 pairs maximum regardless of intensity
+              // This fixes the issue where too many eyes appear on first activation
+              const initialNumPairs = Math.min(2, numEyePairs);
+              console.log(`[DEBUG] First mammal appearance - limiting to ${initialNumPairs} eye pairs (was ${numEyePairs})`);
             
-            console.log('[DEBUG] Initial mammal eyes created with starting opacity 0.01 for proper fade-in');
+              setParticles(prev => ({
+                ...prev,
+                lastEyePositionChange: frameCountRef.current,
+                // Initialize with shuffled positions and starting with high visibility
+                activeEyePositions: [...positions].sort(() => 0.5 - Math.random()).slice(0, initialNumPairs),
+                eyePairs: Array(initialNumPairs).fill(0).map((_, i) => ({
+                  opacity: 0.01, // Start with very low opacity for proper fade-in
+                  blinkTimer: 3000 + Math.random() * 2000,
+                  size: 0.64 + Math.random() * 0.32, // 20% smaller (0.8 -> 0.64, 0.4 -> 0.32)
+                  behavior: i % 2 === 0 ? 'cautious' : 'curious', // Alternate between behaviors
+                  blinkFrequency: i % 2 === 0 ? 'frequent' : 'rare', // Different blink patterns
+                  lastBlink: 0
+                })),
+                eyeFadeTimestamp: Date.now(), // Start at beginning of cycle for proper fade-in
+                nextEyeReturnDelay: 0 // No initial delay
+              }));
+            
+              console.log('[DEBUG] Initial mammal eyes created with starting opacity 0.01 for proper fade-in');
+            } else {
+              console.log('[DEBUG] Skipping mammal eyes initialization - already initialized');
+            }
           }
           
           // Randomize positions at less frequent intervals to maintain visibility
