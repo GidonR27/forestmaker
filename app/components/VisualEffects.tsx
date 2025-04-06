@@ -89,10 +89,12 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    const w = canvas.width;
-    const h = canvas.height;
+    // Use display size, not the scaled canvas size
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
     
-    console.log(`[DEBUG] Initializing particles - Canvas size: ${w}x${h}`);
+    console.log(`[DEBUG] Initializing particles - Canvas display size: ${w}x${h}, DPR: ${dpr}`);
     
     // Reset all particles with increased quantities and sizes
     const newParticles = {
@@ -328,28 +330,29 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    // Set canvas to match parent dimensions
+    // Set canvas to match parent dimensions with proper DPR handling
     const resizeCanvas = () => {
+      const dpr = window.devicePixelRatio || 1;
+      console.log(`[DEBUG] Device pixel ratio: ${dpr}`);
+      
+      // First set canvas dimensions based on parent or window
       const parentRect = canvas.parentElement?.getBoundingClientRect();
       if (parentRect) {
-        // Get the device pixel ratio for high DPI displays
-        const dpr = window.devicePixelRatio || 1;
-        
-        // Set the canvas dimensions accounting for device pixel ratio
-        canvas.width = parentRect.width * dpr;
-        canvas.height = parentRect.height * dpr;
-        
-        // Set the display size (CSS) to match the parent dimensions
+        // Set the display size (css pixels)
         canvas.style.width = `${parentRect.width}px`;
         canvas.style.height = `${parentRect.height}px`;
         
-        // Scale the drawing context to counter the device pixel ratio
+        // Set the actual size in memory (scaled for DPR)
+        canvas.width = Math.floor(parentRect.width * dpr);
+        canvas.height = Math.floor(parentRect.height * dpr);
+        
+        console.log(`[DEBUG] Canvas size set to ${canvas.width}x${canvas.height} (display: ${parentRect.width}x${parentRect.height}, DPR: ${dpr})`);
+        
+        // Scale the context to ensure correct drawing operations
         ctx.scale(dpr, dpr);
         
-        console.log(`[DEBUG] Canvas resized to ${parentRect.width}x${parentRect.height} with DPR ${dpr} (actual pixels: ${canvas.width}x${canvas.height})`);
-        
         // When canvas is resized, re-initialize particles to use the new dimensions
-        // Note: We use the CSS dimensions (parentRect) for particle positioning, not the actual canvas pixels
+        // Use display dimensions for calculations (not the DPR-scaled ones)
         const w = parentRect.width;
         const h = parentRect.height;
         
@@ -382,8 +385,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           // Update animal shadows
           const updatedShadows = particlesRef.current.animalShadows.map((shadow: any) => ({
             ...shadow,
-            x: w * (shadow.x / (parentRect.width || w)),
-            y: h * (shadow.y / (parentRect.height || h))
+            x: w * (shadow.x / (w || 1)),
+            y: h * (shadow.y / (h || 1))
           }));
           
           setParticles(prev => ({
@@ -393,21 +396,46 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           
           console.log(`[DEBUG] Updated animal shadows after resize`);
         }
+      } else {
+        // Fallback to window dimensions if no parent
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+        
+        canvas.width = Math.floor(window.innerWidth * dpr);
+        canvas.height = Math.floor(window.innerHeight * dpr);
+        
+        console.log(`[DEBUG] Canvas fallback size: ${canvas.width}x${canvas.height} (window: ${window.innerWidth}x${window.innerHeight}, DPR: ${dpr})`);
+        
+        ctx.scale(dpr, dpr);
       }
     };
 
     // Initial resize
     resizeCanvas();
     
-    // Perform one more resize after a short delay to ensure dimensions are correct
-    setTimeout(resizeCanvas, 500);
-    
-    // Add additional resize to handle any potential layout shifts
-    setTimeout(resizeCanvas, 1000);
-    setTimeout(resizeCanvas, 2000);
+    // More robust approach: multiple resize attempts with increasing delays
+    // This helps with various Vercel deployment scenarios
+    const delayedResizes = [100, 500, 1000, 2000];
+    delayedResizes.forEach(delay => {
+      setTimeout(() => {
+        console.log(`[DEBUG] Delayed resize after ${delay}ms`);
+        resizeCanvas();
+      }, delay);
+    });
 
-    // Add resize listener
-    window.addEventListener('resize', resizeCanvas);
+    // Add resize listener with debounce
+    let resizeTimeout: number | null = null;
+    const handleResize = () => {
+      if (resizeTimeout) {
+        window.clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        console.log('[DEBUG] Window resized - updating canvas');
+        resizeCanvas();
+      }, 100) as unknown as number;
+    };
+    
+    window.addEventListener('resize', handleResize);
 
     const animate = () => {
       const now = Date.now();
@@ -417,21 +445,18 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       // Max deltaTime to prevent huge jumps after tab becomes active again
       const dt = Math.min(deltaTime, 33) / 16; // Normalize for 60fps (16ms frame time)
 
-      // Use parent dimensions for calculations (actual display size)
-      const parentRect = canvas.parentElement?.getBoundingClientRect();
-      const w = parentRect ? parentRect.width : canvas.width / (window.devicePixelRatio || 1);
-      const h = parentRect ? parentRect.height : canvas.height / (window.devicePixelRatio || 1);
+      // Use display size (not the DPR-scaled size)
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
       
-      // Clear canvas with transparency for layering effect (clear the entire high-res canvas)
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.restore(); // Restore the scale transform
+      // Clear canvas with transparency for layering effect
+      ctx.clearRect(0, 0, w, h);
       
       // Log framing timing periodically
       frameCountRef.current++;
       if (frameCountRef.current % logIntervalRef.current === 0) {
-        console.log(`[DEBUG] Frame #${frameCountRef.current}, dt: ${dt.toFixed(2)}ms`);
+        console.log(`[DEBUG] Frame #${frameCountRef.current}, dt: ${dt.toFixed(2)}ms, canvas: ${w}x${h}`);
       }
       
       // Check for sound changes
@@ -1835,14 +1860,14 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       if (requestIdRef.current) {
         cancelAnimationFrame(requestIdRef.current);
       }
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('resize', handleResize);
     };
   }, [activeSounds, soundValues]);
 
   return (
     <canvas 
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-10"
+      className="fixed inset-0 pointer-events-none z-10 w-full h-full"
       id="visual-effects-canvas"
     />
   );
