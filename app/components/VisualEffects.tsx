@@ -955,11 +955,22 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             console.log(`[DEBUG] Eyes state - fadeTime: ${secondsSincePositionChange.toFixed(1)}s, fading in: ${isFadingIn}, fading out: ${isFadingOut}`);
           }
           
+          // Get active positions or fallback to default positions
+          const activePositions = currentParticles.activeEyePositions || 
+                                 positions.slice(0, numEyePairs);
+                                 
           // Only change positions if the eyes have completely faded out and the delay has elapsed,
           // or if no positions exist yet
           const readyForNewPositions = 
             !currentParticles.activeEyePositions || 
             (secondsSincePositionChange > 9.5 && now >= (currentParticles.nextEyeReturnDelay || 0));
+          
+          // Debug the delay status periodically
+          if (frameCountRef.current % 100 === 0) {
+            const delayRemaining = currentParticles.nextEyeReturnDelay ? 
+              Math.max(0, (currentParticles.nextEyeReturnDelay - now) / 1000) : 0;
+            console.log(`[DEBUG] Mammal eyes status - secondsSinceChange: ${secondsSincePositionChange.toFixed(1)}s, delay remaining: ${delayRemaining.toFixed(1)}s, readyForNew: ${readyForNewPositions}`);
+          }
           
           if (readyForNewPositions) {
             // Shuffle positions array to get random positions
@@ -1011,21 +1022,21 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             // Check if we should start a new cycle after the fade out is complete
             // Only create new eyes if we haven't set a delay or the delay has elapsed
             if (currentParticles.nextEyeReturnDelay === 0) {
-              // Set a random delay before showing new eyes (between 4-10 seconds instead of 1-6)
+              // Set a random delay before showing new eyes (between 4-10 seconds)
               const randomDelay = now + randomBetween(4000, 10000);
               console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
               
-              setParticles(prev => ({
-                ...prev,
-                nextEyeReturnDelay: randomDelay
-              }));
+              // IMPORTANT: Use a separate function for this state update to ensure it's not batched with others
+              // This ensures the delay is properly set and not overwritten
+              setTimeout(() => {
+                setParticles(prev => ({
+                  ...prev,
+                  nextEyeReturnDelay: randomDelay
+                }));
+              }, 0);
             }
           }
           
-          // Get active positions or fallback to default positions
-          const activePositions = currentParticles.activeEyePositions || 
-                                 positions.slice(0, numEyePairs);
-                                 
           // For each active eye pair position
           activePositions.forEach((position, idx) => {
             // Get current state or default values
