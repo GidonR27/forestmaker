@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SoundEqualizer from './components/SoundEqualizer';
 import ForestMatch from './components/ForestMatch';
 import PiPMiniPlayer, { PiPMiniPlayerHandle } from './components/PiPMiniPlayer';
+import VisualEffects from './components/VisualEffects';
 import { findMatchingForest, SoundProfile, SoundType } from './utils/forestMatcher';
 import { Forest, forests } from './data/forests';
 import Image from 'next/image';
@@ -25,6 +26,18 @@ const soundIcons = {
 export default function Home() {
   const [currentForest, setCurrentForest] = useState<Forest | null>(null);
   const [activeSounds, setActiveSounds] = useState<Set<SoundType>>(new Set());
+  const [soundValues, setSoundValues] = useState<Record<SoundType, number>>({
+    wind: 0,
+    rain: 0,
+    birds: 0,
+    thunder: 0,
+    water: 0,
+    insects: 0,
+    mammals: 0,
+    fire: 0,
+    ambient: 0,
+    spiritual: 0
+  });
   const [hasInteracted, setHasInteracted] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [previousImage, setPreviousImage] = useState<string>('/assets/images/forest1.png');
@@ -74,12 +87,21 @@ export default function Home() {
     }
   }, [currentForest?.imageUrl]);
 
-  const handleSoundChange = (activeSounds: SoundType[]) => {
+  const handleSoundChange = (activeSounds: SoundType[], sliderValues?: Record<SoundType, number>) => {
     console.log('Page Sound Change:', {
       activeSounds,
       hasInteracted,
       currentForest
     });
+    
+    // Debug log for fire sound specifically
+    if (activeSounds.includes('fire')) {
+      console.log('[DEBUG] Fire sound is included in activeSounds array');
+    } else {
+      console.log('[DEBUG] Fire sound is NOT included in activeSounds array');
+      // List all active sounds for debugging
+      console.log('[DEBUG] Active sounds:', activeSounds);
+    }
 
     // Set hasInteracted to true on first interaction
     if (!hasInteracted) {
@@ -89,13 +111,37 @@ export default function Home() {
 
     // Update active sounds
     setActiveSounds(new Set(activeSounds));
+    
+    // Debug log after setting active sounds
+    console.log('[DEBUG] After setting activeSounds, size:', activeSounds.length);
 
-    // Create a sound profile from the active sounds
+    // Create a sound profile from the active sounds or use provided values
     const soundProfile: SoundProfile = {} as SoundProfile;
-    Object.keys(soundIcons).forEach((sound) => {
-      // Use 0.5 for active sounds to match the initial value when toggling
-      soundProfile[sound as SoundType] = activeSounds.includes(sound as SoundType) ? 0.5 : 0;
-    });
+    const newSoundValues: Record<SoundType, number> = { ...soundValues };
+    
+    if (sliderValues) {
+      // If we have explicit slider values from the SoundEqualizer, use those
+      Object.keys(soundIcons).forEach((sound) => {
+        const soundType = sound as SoundType;
+        const value = sliderValues[soundType] || 0;
+        soundProfile[soundType] = value;
+        newSoundValues[soundType] = value;
+      });
+      
+      // Update sound values for visual effects
+      setSoundValues(newSoundValues);
+    } else {
+      // Otherwise use default values based on active sounds
+      Object.keys(soundIcons).forEach((sound) => {
+        // Use 0.5 for active sounds to match the initial value when toggling
+        const isActive = activeSounds.includes(sound as SoundType);
+        soundProfile[sound as SoundType] = isActive ? 0.5 : 0;
+        newSoundValues[sound as SoundType] = isActive ? 0.5 : 0;
+      });
+      
+      // Update sound values for visual effects
+      setSoundValues(newSoundValues);
+    }
 
     console.log('Sound Profile:', soundProfile);
 
@@ -207,6 +253,14 @@ export default function Home() {
           />
         </div>
       </div>
+
+      {/* Visual Effects Canvas */}
+      {hasInteracted && (
+        <VisualEffects 
+          activeSounds={activeSounds} 
+          soundValues={soundValues} 
+        />
+      )}
 
       {/* Content */}
       <div className="relative h-full flex flex-col">

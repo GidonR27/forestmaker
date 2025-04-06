@@ -7,7 +7,7 @@ import { TbWind, TbDroplet, TbFeather, TbCloudStorm, TbDropletFilled, TbBug, TbD
 import { SoundType } from '../utils/forestMatcher';
 
 interface SoundEqualizerProps {
-  onSoundChange: (sounds: SoundType[]) => void;
+  onSoundChange: (sounds: SoundType[], soundValues?: Record<SoundType, number>) => void;
 }
 
 const soundIcons = {
@@ -120,12 +120,33 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
           name: name as SoundType,
           value: sound.value
         }));
+        
+      // Debug log all active sounds before filtering
+      console.log('[DEBUG] All active sounds before filtering:', 
+        activeSoundsWithValues.map(s => `${s.name}:${s.value.toFixed(2)}`));
 
       // Sort by value to prioritize stronger sounds
       activeSoundsWithValues.sort((a, b) => b.value - a.value);
+      
+      // Debug log sorted sounds
+      console.log('[DEBUG] Sorted active sounds by value:',
+        activeSoundsWithValues.map(s => `${s.name}:${s.value.toFixed(2)}`));
 
+      // ISSUE: This limits to top 3 sounds, removing any after the top 3
       // Take only the top 3 sounds to avoid overwhelming the forest matching
-      const topSounds = activeSoundsWithValues.slice(0, 3).map(s => s.name);
+      // const topSounds = activeSoundsWithValues.slice(0, 3).map(s => s.name);
+      
+      // FIXED: Use all active sounds instead of limiting to top 3
+      const topSounds = activeSoundsWithValues.map(s => s.name);
+      
+      // Debug log selected sounds
+      console.log('[DEBUG] Selected sounds for visuals:', topSounds);
+      
+      // Create a values map for all sounds
+      const soundValues: Record<SoundType, number> = {} as Record<SoundType, number>;
+      Object.entries(sounds).forEach(([name, sound]) => {
+        soundValues[name as SoundType] = sound.isActive ? sound.value : 0;
+      });
       
       if (JSON.stringify(topSounds) !== JSON.stringify(activeSounds)) {
         console.log('Updating active sounds:', {
@@ -134,7 +155,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
           allSounds: sounds
         });
         setActiveSounds(topSounds);
-        onSoundChange(topSounds);
+        onSoundChange(topSounds, soundValues);
       }
     }, 350); // Increased debounce delay from 100ms to 350ms
   }, [sounds, activeSounds, onSoundChange]);
