@@ -23,6 +23,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
   const nextTriggersRef = useRef<any>(null);
   const flashAlphaRef = useRef<number>(0);
   
+  // Refs for mammal eye delay logic
+  const lastEyePositionTimeRef = useRef<number>(0);
+  const needsDelayNextCycleRef = useRef<boolean>(false);
+  
   // Initialize particle collections
   const [particles, setParticles] = useState({
     windParticles: [] as { x: number; y: number; speed: number; radius: number }[],
@@ -971,10 +975,6 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               Math.max(0, (currentParticles.nextEyeReturnDelay - now) / 1000) : 0;
             console.log(`[DEBUG] Mammal eyes status - secondsSinceChange: ${secondsSincePositionChange.toFixed(1)}s, delay remaining: ${delayRemaining.toFixed(1)}s, readyForNew: ${readyForNewPositions}`);
           }
-          
-          // Create refs to track state across renders (if they don't exist yet)
-          const lastEyePositionTimeRef = useRef<number>(0);
-          const needsDelayNextCycleRef = useRef<boolean>(false);
           
           if (readyForNewPositions) {
             // Shuffle positions array to get random positions
