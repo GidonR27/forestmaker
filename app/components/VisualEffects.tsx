@@ -104,6 +104,12 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     // Keep track of the initial eye positions to prevent jumping
     let initialEyePositions: { x: number; y: number }[] = [];
     
+    // Preserve refs values across animation restarts
+    if (lastEyePositionTimeRef.current === 0 && particlesRef.current?.lastEyePositionChange) {
+      console.log('[DEBUG] Preserving eye position time ref from previous animation session');
+      lastEyePositionTimeRef.current = Date.now() - 30000; // Set to a time that won't trigger immediate cycle
+    }
+    
     // Initialize all particles based on current dimensions
     const initializeParticles = (w: number, h: number) => {
       console.log(`[DEBUG] Initializing particles - Canvas display size: ${w}x${h}, DPR: ${window.devicePixelRatio || 1}`);
@@ -218,7 +224,7 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         activationTimestamps: {},
         visualPriorities: [],
         fireLastRendered: false,
-        nextEyeReturnDelay: 0
+        nextEyeReturnDelay: 0, // Restore preserved delay if it exists
       };
       
       // Update state and ref
@@ -976,6 +982,28 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             console.log(`[DEBUG] Mammal eyes status - secondsSinceChange: ${secondsSincePositionChange.toFixed(1)}s, delay remaining: ${delayRemaining.toFixed(1)}s, readyForNew: ${readyForNewPositions}`);
           }
           
+          // CRITICAL: If we're at the threshold for new positions but no delay is set, force one
+          // This ensures a delay happens on every cycle, even if the initial one fails
+          if (secondsSincePositionChange > 9.0 && secondsSincePositionChange < 9.5 && 
+              (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
+            const randomDelay = now + randomBetween(4000, 10000);
+            console.log(`[DEBUG] Critical timing point reached with no delay. Setting mandatory delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
+            
+            setParticles(prev => {
+              const newState = {
+                ...prev,
+                nextEyeReturnDelay: randomDelay
+              };
+              // Update ref immediately
+              setTimeout(() => {
+                if (particlesRef.current) {
+                  particlesRef.current.nextEyeReturnDelay = randomDelay;
+                }
+              }, 0);
+              return newState;
+            });
+          }
+          
           if (readyForNewPositions) {
             // Shuffle positions array to get random positions
             const shuffled = [...positions].sort(() => 0.5 - Math.random());
@@ -1026,13 +1054,10 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
               // if the time between positions is less than 12 seconds
               // (indicating we didn't already have a delay)
               if (timeSinceLastCreation < 12000) {
-                // Calculate a delay between 4-10 seconds from now
-                const delaySeconds = randomBetween(4, 10);
-                const randomDelay = now + (delaySeconds * 1000);
+                const randomDelay = now + randomBetween(4000, 10000);
+                console.log(`[DEBUG] IMPORTANT: Setting next eye delay of ${((randomDelay - now)/1000).toFixed(1)}s after creating new positions`);
                 
-                console.log(`[DEBUG] Setting next eye delay of ${delaySeconds.toFixed(1)}s after creating new positions`);
-                
-                // Add delay to our update object
+                // Add delay to our update object - THIS IS CRITICAL
                 particleUpdates.nextEyeReturnDelay = randomDelay;
                 
                 // This ensures the next cycle will have the delay
@@ -1045,21 +1070,25 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             
             console.log(`[DEBUG] Particle update with delayNextCycle=${needsDelayNextCycleRef.current}, delay=${particleUpdates.nextEyeReturnDelay || 0}`);
             
-            // Apply all our updates together
-            setParticles(prev => ({
-              ...prev,
-              ...particleUpdates
-            }));
+            // Apply all our updates together and immediately sync with ref
+            setParticles(prev => {
+              const newState = {
+                ...prev,
+                ...particleUpdates
+              };
+              // Important: Update the ref immediately to ensure animation frame has latest value
+              setTimeout(() => {
+                particlesRef.current = newState;
+              }, 0);
+              return newState;
+            });
             
             console.log('[DEBUG] New mammal eyes created with starting opacity 0.01 for proper fade-in');
           } else if (secondsSincePositionChange > 9.5) {
             // If we need to set a delay for the next cycle, do it now
             if (needsDelayNextCycleRef.current && (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
-              // Calculate a delay between 4-10 seconds from now
-              const delaySeconds = randomBetween(4, 10);
-              const randomDelay = now + (delaySeconds * 1000);
-              
-              console.log(`[DEBUG] Setting delayed random delay of ${delaySeconds.toFixed(1)}s before new eyes appear`);
+              const randomDelay = now + randomBetween(4000, 10000);
+              console.log(`[DEBUG] Setting delayed random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
               
               // Set the delay and mark that we've handled this cycle
               needsDelayNextCycleRef.current = false;
@@ -1170,6 +1199,29 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
                 2 * fadeProgress * fadeProgress : 
                 1 - Math.pow(-2 * fadeProgress + 2, 2) / 2);
               targetOpacity *= easedProgress;
+              
+              // Detect when eyes have almost completely faded out (opacity very low)
+              // This is the right moment to set the delay for the next appearance
+              if (easedProgress < 0.1 && (!currentParticles.nextEyeReturnDelay || currentParticles.nextEyeReturnDelay === 0)) {
+                // Set the delay right when eyes fade out completely
+                const randomDelay = now + randomBetween(4000, 10000);
+                console.log(`[DEBUG] Eyes almost completely faded out. Setting next appearance delay of ${((randomDelay - now)/1000).toFixed(1)}s`);
+                
+                // Directly update the delay state and ref to ensure it's respected
+                setParticles(prev => {
+                  const newState = {
+                    ...prev,
+                    nextEyeReturnDelay: randomDelay
+                  };
+                  // Important: immediately update the ref value
+                  setTimeout(() => {
+                    if (particlesRef.current) {
+                      particlesRef.current.nextEyeReturnDelay = randomDelay;
+                    }
+                  }, 0);
+                  return newState;
+                });
+              }
               
               // Log fade out progress for debugging
               if (Math.random() < 0.05) {
@@ -1894,22 +1946,31 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
     // Cleanup on unmount
     return () => {
       console.log('[DEBUG] Cleaning up animation');
+      
+      // Save state values to refs for potential reuse
+      if (lastEyePositionTimeRef.current > 0) {
+        console.log('[DEBUG] Preserving eye position time before cleanup');
+      }
+      
       if (requestIdRef.current) {
-        cancelAnimationFrame(requestIdRef.current);
+        window.cancelAnimationFrame(requestIdRef.current);
+        requestIdRef.current = null;
       }
       window.removeEventListener('resize', handleResize);
     };
   }, [activeSounds, soundValues]);
 
-  // Update refs when state changes to prevent null reference errors
+  // Sync state to refs whenever particles change
   useEffect(() => {
     particlesRef.current = particles;
   }, [particles]);
   
+  // Sync nextTriggers state to ref
   useEffect(() => {
     nextTriggersRef.current = nextTriggers;
   }, [nextTriggers]);
   
+  // Sync flashAlpha state to ref
   useEffect(() => {
     flashAlphaRef.current = flashAlpha;
   }, [flashAlpha]);
