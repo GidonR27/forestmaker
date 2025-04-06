@@ -334,11 +334,60 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
       if (parentRect) {
         canvas.width = parentRect.width;
         canvas.height = parentRect.height;
+        console.log(`[DEBUG] Canvas resized to ${canvas.width}x${canvas.height}`);
+        
+        // When canvas is resized, re-initialize particles to use the new dimensions
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        // Update particle positions that depend on canvas dimensions
+        if (particlesRef.current) {
+          // Update positions for eye pairs
+          const eyePositions = [
+            { x: w * 0.12, y: h * 0.55 },  // left upper
+            { x: w * 0.08, y: h * 0.70 },  // left lower
+            { x: w * 0.25, y: h * 0.65 },  // left-center 
+            { x: w * 0.40, y: h * 0.75 },  // center-left
+            { x: w * 0.60, y: h * 0.72 },  // center-right
+            { x: w * 0.75, y: h * 0.60 },  // right-center
+            { x: w * 0.92, y: h * 0.65 },  // right upper
+            { x: w * 0.88, y: h * 0.80 }   // right lower
+          ];
+          
+          // Update active eye positions if they exist
+          if (particlesRef.current.activeEyePositions && particlesRef.current.activeEyePositions.length > 0) {
+            const shuffled = [...eyePositions].sort(() => 0.5 - Math.random());
+            const updatedPositions = shuffled.slice(0, particlesRef.current.activeEyePositions.length);
+            
+            setParticles(prev => ({
+              ...prev,
+              activeEyePositions: updatedPositions
+            }));
+            console.log(`[DEBUG] Updated eye positions after resize: ${updatedPositions.length} positions`);
+          }
+          
+          // Update animal shadows
+          const updatedShadows = particlesRef.current.animalShadows.map((shadow: any) => ({
+            ...shadow,
+            x: w * (shadow.x / (canvas.width || w)),
+            y: h * (shadow.y / (canvas.height || h))
+          }));
+          
+          setParticles(prev => ({
+            ...prev,
+            animalShadows: updatedShadows
+          }));
+          
+          console.log(`[DEBUG] Updated animal shadows after resize`);
+        }
       }
     };
 
     // Initial resize
     resizeCanvas();
+    
+    // Perform one more resize after a short delay to ensure dimensions are correct
+    setTimeout(resizeCanvas, 500);
 
     // Add resize listener
     window.addEventListener('resize', resizeCanvas);
@@ -802,14 +851,14 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
           
           // Define possible positions for eye pairs - expanded to sides and up to half screen height
           const positions = [
-            { x: w * 0.12, y: h * 0.65 },  // left upper - moved down
-            { x: w * 0.08, y: h * 0.80 },  // left lower - moved down
-            { x: w * 0.25, y: h * 0.75 },  // left-center - moved down
-            { x: w * 0.40, y: h * 0.85 },  // center-left - moved down
-            { x: w * 0.60, y: h * 0.82 },  // center-right - moved down
-            { x: w * 0.75, y: h * 0.70 },  // right-center - moved down
-            { x: w * 0.92, y: h * 0.75 },  // right upper - moved down
-            { x: w * 0.88, y: h * 0.90 }   // right lower - moved down
+            { x: w * 0.12, y: h * 0.55 },  // left upper
+            { x: w * 0.08, y: h * 0.70 },  // left lower
+            { x: w * 0.25, y: h * 0.65 },  // left-center 
+            { x: w * 0.40, y: h * 0.75 },  // center-left
+            { x: w * 0.60, y: h * 0.72 },  // center-right
+            { x: w * 0.75, y: h * 0.60 },  // right-center
+            { x: w * 0.92, y: h * 0.65 },  // right upper
+            { x: w * 0.88, y: h * 0.80 }   // right lower
           ];
           
           // Ensure position changes at least every 5 seconds
