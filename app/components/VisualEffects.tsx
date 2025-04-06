@@ -372,8 +372,8 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
         // More detailed logging of priorities
         if (particlesRef.current?.visualPriorities && particlesRef.current.visualPriorities.length > 0) {
           console.log('[DEBUG] Current sound priorities (newest first):');
-          particlesRef.current.visualPriorities.forEach((sound, index) => {
-            const timestamp = particlesRef.current?.activationTimestamps?.[sound] || 0;
+          particlesRef.current.visualPriorities.forEach((sound: SoundType, index: number) => {
+            const timestamp = particlesRef.current?.activationTimestamps?.[sound as keyof typeof particlesRef.current.activationTimestamps] || 0;
             const age = Math.floor((now - timestamp) / 1000); // age in seconds
             console.log(`[DEBUG] ${index + 1}. ${sound} (intensity: ${soundValues[sound]?.toFixed(2)}, age: ${age}s)`);
           });
