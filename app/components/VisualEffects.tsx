@@ -1011,7 +1011,7 @@ export default function VisualEffects({ activeSounds, soundValues }: VisualEffec
             // Check if we should start a new cycle after the fade out is complete
             // Only create new eyes if we haven't set a delay or the delay has elapsed
             if (currentParticles.nextEyeReturnDelay === 0) {
-              // Set a longer random delay before showing new eyes (between 4-10 seconds)
+              // Set a random delay before showing new eyes (between 4-10 seconds instead of 1-6)
               const randomDelay = now + randomBetween(4000, 10000);
               console.log(`[DEBUG] Setting random delay of ${((randomDelay - now)/1000).toFixed(1)}s before new eyes appear`);
               
