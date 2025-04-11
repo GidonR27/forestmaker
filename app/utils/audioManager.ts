@@ -3,14 +3,23 @@ interface SoundAsset {
   url: string;
 }
 
+// Used for type documentation only, not directly instantiated
+/* eslint-disable @typescript-eslint/no-unused-vars */
 interface AudioSource {
   source: AudioBufferSourceNode;
   gainNode: GainNode;
   isPlaying: boolean;
 }
+/* eslint-enable @typescript-eslint/no-unused-vars */
+
+// Define Timer type to avoid using NodeJS namespace
+type TimerRef = ReturnType<typeof setTimeout> | null;
+
+// Define AudioContextState type locally to avoid reference errors
+type LocalAudioContextState = 'suspended' | 'running' | 'closed';
 
 // Extended AudioContext state type to include iOS-specific 'interrupted' state
-type ExtendedAudioContextState = AudioContextState | 'interrupted';
+type ExtendedAudioContextState = LocalAudioContextState | 'interrupted';
 
 export class AudioManager {
   private static instance: AudioManager;
@@ -19,7 +28,7 @@ export class AudioManager {
   private activeSources: Map<string, AudioBufferSourceNode> = new Map();
   private activeGains: Map<string, GainNode> = new Map();
   private initialized = false;
-  private audioContextStateInterval: NodeJS.Timeout | null = null;
+  private audioContextStateInterval: TimerRef = null;
   private lastVisibilityState: string = 'visible';
   private recoveryAttempts: number = 0;
   private isIOS: boolean = false;
@@ -27,7 +36,8 @@ export class AudioManager {
   private _mainPageMasterGain: GainNode | null = null;
   
   // PiP connection function (will be set by PiPMiniPlayer)
-  public connectToPiP?: (sourceNode: AudioNode) => void;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public connectToPiP?: (audioNode: AudioNode) => void;
 
   private constructor() {
     // Check if running on iOS

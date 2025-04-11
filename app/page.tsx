@@ -7,6 +7,8 @@ import PiPMiniPlayer, { PiPMiniPlayerHandle } from './components/PiPMiniPlayer';
 import VisualEffects from './components/VisualEffects';
 import { findMatchingForest, SoundProfile, SoundType } from './utils/forestMatcher';
 import { Forest, forests } from './data/forests';
+import { setupMediaSession, updateMediaSessionMetadata, setMediaSessionPlaybackState } from './utils/mediaSession';
+import { audioManager } from './utils/audioManager';
 import Image from 'next/image';
 import { TbWind, TbDroplet, TbFeather, TbCloudStorm, TbDropletFilled, TbBug, TbDeer, TbFlame, TbMoodSmile, TbPray, TbPictureInPicture, TbPictureInPictureOff } from 'react-icons/tb';
 
@@ -44,7 +46,55 @@ export default function Home() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [nextImageLoaded, setNextImageLoaded] = useState(false);
   const [isPiPVisible, setIsPiPVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const pipPlayerRef = useRef<PiPMiniPlayerHandle>(null);
+  const lastSoundValuesRef = useRef<Record<SoundType, number>>(soundValues);
+
+  // Setup Media Session API
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setupMediaSession({
+        forestName: currentForest?.name || 'Forest Sound',
+        handlers: {
+          onPlay: () => {
+            // Resume playback if paused
+            if (isPaused) {
+              // Restore the last sound values
+              const soundsToResume = Object.entries(lastSoundValuesRef.current)
+                .filter(([_, value]) => value > 0)
+                .map(([sound]) => sound as SoundType);
+              
+              handleSoundChange(Array.from(soundsToResume), lastSoundValuesRef.current);
+              setIsPaused(false);
+              setMediaSessionPlaybackState('playing');
+            }
+          },
+          onPause: () => {
+            // Store current sound values before pausing
+            lastSoundValuesRef.current = {...soundValues};
+            
+            // Pause all sounds
+            audioManager.stopAllSounds();
+            setIsPaused(true);
+            setMediaSessionPlaybackState('paused');
+          },
+          onStop: () => {
+            // Stop all sounds
+            audioManager.stopAllSounds();
+            setIsPaused(true);
+            setMediaSessionPlaybackState('none');
+          }
+        }
+      });
+    }
+  }, []);
+
+  // Update Media Session metadata when forest changes
+  useEffect(() => {
+    if (currentForest && typeof window !== 'undefined') {
+      updateMediaSessionMetadata(currentForest.name);
+    }
+  }, [currentForest]);
 
   // Preload forest images
   useEffect(() => {
@@ -193,6 +243,14 @@ export default function Home() {
 
     console.log('Sound Profile:', soundProfile);
 
+    // Update media session state
+    if (activeSounds.length > 0) {
+      setMediaSessionPlaybackState('playing');
+      setIsPaused(false);
+    } else {
+      setMediaSessionPlaybackState('none');
+    }
+
     // Only find matching forest if there are active sounds
     if (activeSounds.length > 0) {
       const matchingForest = findMatchingForest(soundProfile, new Set(activeSounds));
@@ -206,6 +264,11 @@ export default function Home() {
         setIsTransitioning(false);
         // Update forest (this will trigger the image loading effect)
         setCurrentForest(matchingForest);
+        
+        // Update media session metadata with new forest
+        if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+          updateMediaSessionMetadata(matchingForest.name);
+        }
       }
     } else {
       console.log('No active sounds, clearing forest');
