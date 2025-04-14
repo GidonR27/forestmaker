@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const { readFileSync } = require('fs');
 const path = require('path');
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development'
+});
 
 // Get certificate paths
 const certPath = path.join(process.cwd(), 'certificates');
@@ -52,4 +58,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);
