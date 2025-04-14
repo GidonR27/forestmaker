@@ -4,8 +4,8 @@
   "description": "Create your perfect forest soundscape",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0e313b",
-  "theme_color": "#0e313b",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait",
   "icons": [
     {
