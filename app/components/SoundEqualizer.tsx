@@ -308,7 +308,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
       hasAudio: hasAudioAsset(sound)
     });
 
-    const newValue = sounds[sound].isActive ? 0 : 0.5;
+    const newValue = sounds[sound].isActive ? 0 : 0.25;
     const newIsActive = !sounds[sound].isActive;
     
     // Update the sound state
@@ -348,7 +348,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
             await audioManager.playSound({
               id: asset.id,
               url: asset.url
-            }, 0.3);
+            }, 0.25);
             
             // Update currently playing reference
             currentlyPlayingRef.current[sound] = asset.id;
