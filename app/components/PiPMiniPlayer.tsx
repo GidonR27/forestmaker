@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { audioManager } from '../utils/audioManager';
 import { Forest } from '../data/forests';
-import { TbPictureInPicture } from 'react-icons/tb';
+import { TbPictureInPicture, TbCast } from 'react-icons/tb';
 
 // Extend HTMLVideoElement with webkit-specific properties
 declare global {
@@ -928,6 +928,24 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
       // Make sure video has focus
       videoRef.current.focus();
       
+      // Ensure all AirPlay attributes are set (iOS requirements)
+      if (isIOS) {
+        videoRef.current.setAttribute("webkit-playsinline", "true");
+        videoRef.current.setAttribute("x-webkit-airplay", "allow");
+        videoRef.current.setAttribute("webkitShowPlaybackTargetPicker", "true");
+        videoRef.current.setAttribute("airplay", "allow");
+        
+        // Try to explicitly enable AirPlay if available
+        if (typeof (videoRef.current as any).webkitShowPlaybackTargetPicker === 'function') {
+          try {
+            (videoRef.current as any).webkitShowPlaybackTargetPicker();
+            console.log('[PiP Debug] AirPlay picker explicitly shown before entering PiP');
+          } catch (e) {
+            console.error('[PiP Debug] Error showing AirPlay picker:', e);
+          }
+        }
+      }
+      
       // Ensure video is playing (required for PiP)
       if (!isPlaying) {
         try {
@@ -1092,6 +1110,57 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
     };
   }, [isPiPActive, isIOS]);
 
+  // Periodically attempt to show AirPlay button in PiP mode for iOS
+  useEffect(() => {
+    if (!isPiPActive || !isIOS || !videoRef.current) return;
+    
+    console.log('[PiP Debug] AirPlay auto-refresh disabled, using manual button instead');
+    
+    // No longer auto-refreshing AirPlay button, user will use explicit button instead
+    
+    // Return empty cleanup function
+    return () => {};
+  }, [isPiPActive, isIOS]);
+
+  // Detect native PiP activation (when user clicks the native PiP button)
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    console.log('[PiP Debug] Setting up cross-platform native PiP detection');
+    
+    // Check if the video is in PiP mode every 500ms
+    const detectNativePiPInterval = setInterval(() => {
+      if (videoRef.current) {
+        let isInNativePiP = false;
+        
+        // iOS detection
+        if (isIOS && videoRef.current.webkitPresentationMode) {
+          isInNativePiP = videoRef.current.webkitPresentationMode === 'picture-in-picture';
+        } 
+        // Android detection (standard PiP API)
+        else if (document.pictureInPictureElement === videoRef.current) {
+          isInNativePiP = true;
+        }
+        
+        // If state doesn't match reality, update it
+        if (isInNativePiP && !isPiPActive) {
+          console.log('[PiP Debug] Native PiP mode detected, updating state');
+          setIsPiPActive(true);
+        } else if (!isInNativePiP && isPiPActive) {
+          console.log('[PiP Debug] Native PiP mode exited, updating state');
+          setIsPiPActive(false);
+          
+          // Clean up audio when exiting PiP
+          cleanupPiPAudio();
+        }
+      }
+    }, 500);
+    
+    return () => {
+      clearInterval(detectNativePiPInterval);
+    };
+  }, [isIOS, isPiPActive, cleanupPiPAudio]);
+
   // Don't render if not visible
   if (!isVisible) return null;
 
@@ -1125,7 +1194,12 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
             controls
             loop
             muted={false}
-            onClick={() => videoRef.current?.play()}
+            onClick={() => {
+              // Simply play the video without AirPlay trigger
+              videoRef.current?.play().catch(err => 
+                console.error('[PiP Debug] Error playing video on click:', err)
+              );
+            }}
           />
           
           {/* Info overlay when not playing */}
@@ -1137,14 +1211,30 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
             </div>
           )}
         </div>
-        <div className="p-2 flex justify-center items-center bg-gray-800">
-          <span className="text-white text-sm flex items-center justify-center">
-            Tap <svg className="mx-1.5 -mt-0.5" width="20" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="3" width="20" height="18" rx="2" stroke="white" strokeWidth="1.5" fill="none" />
-              <rect x="11" y="12" width="9" height="7" rx="1" fill="white" />
-            </svg> above
-          </span>
-        </div>
+        {/* Bottom bar conditionally rendered */}
+        {!(isPiPActive && !isIOS) && (
+          <div className="p-2 flex justify-center items-center bg-gray-800">
+            {isPiPActive ? (
+              // Only show AirPlay button for iOS devices
+              <button 
+                onClick={showAirPlayPicker}
+                className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md transition-colors"
+              >
+                <TbCast className="mr-1.5" size={18} />
+                <span className="text-sm">AirPlay</span>
+              </button>
+            ) : (
+              // When not in PiP mode, show instruction text
+              <span className="text-white text-sm flex items-center justify-center">
+                Tap <svg className="mx-1.5 -mt-0.5" width="20" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="3" width="20" height="18" rx="2" stroke="white" strokeWidth="1.5" fill="none" />
+                  <rect x="11" y="12" width="9" height="7" rx="1" fill="white" />
+                </svg> above
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Close button */}
         <button 
           className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full p-1"
