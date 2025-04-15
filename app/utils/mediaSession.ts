@@ -93,37 +93,26 @@ export function setupMediaSession(options: {
         // Mark that we're processing an action and update timestamp
         isProcessingMediaAction = true;
         lastActionTime = now;
-
-        // Set pause state first to prevent multiple calls
-        isPaused = true;
         
+        // Add delay for iOS with PiP to prevent stuttering
         if (isIOS) {
-          console.log('[Media Session] iOS pause detected - forcefully stopping all audio immediately');
-          
-          // For iOS, we need to forcefully stop audio to prevent stuttering in PiP mode
-          // Execute handler multiple times to ensure all audio is stopped
-          if (options.handlers?.onPause) {
-            options.handlers.onPause();
+          console.log('[Media Session] Adding iOS stabilization delay for pause');
+          setTimeout(() => {
+            if (options.handlers?.onPause) {
+              options.handlers.onPause();
+              isPaused = true;
+            }
             
-            // Add a second stop attempt after a small delay
+            // Delay releasing the lock to prevent immediate action
             setTimeout(() => {
-              if (options.handlers?.onPause) {
-                options.handlers.onPause();
-              }
-              if (options.handlers?.onStop) {
-                options.handlers.onStop();
-              }
-              
-              // Release the processing lock after all operations
-              setTimeout(() => {
-                isProcessingMediaAction = false;
-              }, 200);
-            }, 100);
-          }
+              isProcessingMediaAction = false;
+            }, 400);
+          }, 150);
         } else {
           // Execute immediately for non-iOS
           if (options.handlers?.onPause) {
             options.handlers.onPause();
+            isPaused = true;
           }
           
           // Release the lock after a short delay
@@ -154,32 +143,25 @@ export function setupMediaSession(options: {
         isProcessingMediaAction = true;
         lastActionTime = now;
         
-        // Set pause state first to prevent multiple calls
-        isPaused = true;
-        
+        // Add delay for iOS with PiP to prevent stuttering
         if (isIOS) {
-          console.log('[Media Session] iOS stop detected - forcefully stopping all audio immediately');
-          
-          // For iOS, we need to forcefully stop audio to prevent stuttering in PiP mode
-          if (options.handlers?.onStop) {
-            options.handlers.onStop();
+          console.log('[Media Session] Adding iOS stabilization delay for stop');
+          setTimeout(() => {
+            if (options.handlers?.onStop) {
+              options.handlers.onStop();
+              isPaused = true;
+            }
             
-            // Add a second stop attempt after a small delay
+            // Delay releasing the lock to prevent immediate action
             setTimeout(() => {
-              if (options.handlers?.onStop) {
-                options.handlers.onStop();
-              }
-              
-              // Release the processing lock after all operations
-              setTimeout(() => {
-                isProcessingMediaAction = false;
-              }, 200);
-            }, 100);
-          }
+              isProcessingMediaAction = false;
+            }, 400);
+          }, 150);
         } else {
           // Execute immediately for non-iOS
           if (options.handlers?.onStop) {
             options.handlers.onStop();
+            isPaused = true;
           }
           
           // Release the lock after a short delay

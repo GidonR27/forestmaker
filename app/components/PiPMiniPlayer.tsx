@@ -3,8 +3,7 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { audioManager } from '../utils/audioManager';
 import { Forest } from '../data/forests';
-import { IconButton } from './IconButton';
-import { TbPictureInPicture, TbDeviceMobile, TbCast } from 'react-icons/tb';
+import { TbPictureInPicture } from 'react-icons/tb';
 
 // Extend HTMLVideoElement with webkit-specific properties
 declare global {
@@ -1138,20 +1137,13 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
             </div>
           )}
         </div>
-        <div className="p-2 flex justify-between items-center bg-gray-800">
-          <span className="text-white text-sm">
-            Tap <TbPictureInPicture className="inline-block mx-1" size={16} /> to play in background
+        <div className="p-2 flex justify-center items-center bg-gray-800">
+          <span className="text-white text-sm flex items-center justify-center">
+            Tap <svg className="mx-1.5 -mt-0.5" width="20" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="3" width="20" height="18" rx="2" stroke="white" strokeWidth="1.5" fill="none" />
+              <rect x="11" y="12" width="9" height="7" rx="1" fill="white" />
+            </svg> above
           </span>
-          <div>
-            <IconButton 
-              icon={TbPictureInPicture} 
-              onClick={enterPiPMode} 
-              variant="secondary"
-              size="sm"
-              tooltip={isPiPSupported ? "Open Picture-in-Picture" : "PiP not supported"}
-              disabled={isPiPActive || !isPiPSupported}
-            />
-          </div>
         </div>
         {/* Close button */}
         <button 
