@@ -62,8 +62,155 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
   const animationFrameRef = useRef<number>();
   const lastSliderUpdateRef = useRef<Record<SoundType, { time: number, intensity?: string }>>({} as Record<SoundType, { time: number, intensity?: string }>);
   const sliderThrottleTimeRef = useRef<Record<SoundType, NodeJS.Timeout>>({} as Record<SoundType, NodeJS.Timeout>);
+  const isMouseDownRef = useRef<Record<SoundType, boolean>>({} as Record<SoundType, boolean>);
+  const currentSoundRef = useRef<SoundType | null>(null);
 
-  // Smooth value updates
+  // Initialize mouse down ref
+  useEffect(() => {
+    Object.keys(soundIcons).forEach((sound) => {
+      isMouseDownRef.current[sound as SoundType] = false;
+    });
+  }, []);
+
+  const hasAudioAsset = (soundType: string): boolean => {
+    return soundType in audioAssets;
+  };
+
+  // Get sound intensity based on value
+  const getSoundIntensity = (value: number): 'soft' | 'moderate' | 'strong' => {
+    if (value <= 0.33) return 'soft';
+    if (value <= 0.66) return 'moderate';
+    return 'strong';
+  };
+
+  // Track currently playing sounds and their intensities
+  const currentlyPlayingRef = useRef<Record<SoundType, string>>({} as Record<SoundType, string>);
+
+  // Handle audio playback with appropriate throttling
+  const playSoundWithThrottle = useCallback(async (sound: SoundType, value: number) => {
+    if (!hasAudioAsset(sound)) return;
+    
+    try {
+      const now = Date.now();
+      const lastUpdate = lastSliderUpdateRef.current[sound] || { time: 0 };
+      const currentIntensity = getSoundIntensity(value);
+      
+      // If value is 0, just ensure sound is stopped and exit
+      if (value === 0) {
+        // Double-check that all instances are stopped
+        const assetIds = Object.values(audioAssets[sound]).map(asset => asset.id);
+        audioManager.ensureAllStopped(assetIds);
+        // Clear currently playing reference
+        currentlyPlayingRef.current[sound] = '';
+        return;
+      }
+      
+      // Skip if the last update was too recent and intensity hasn't changed
+      if (now - lastUpdate.time < 150 && lastUpdate.intensity === currentIntensity) {
+        return;
+      }
+      
+      // Get asset for this intensity
+      const asset = audioAssets[sound]?.find(a => a.intensity === currentIntensity);
+      if (!asset) return;
+      
+      // Check if the same sound with the same intensity is already playing
+      if (currentlyPlayingRef.current[sound] === asset.id) {
+        // Same sound already playing, just update volume if needed
+        console.log(`[Audio Debug] ${sound} already playing at ${currentIntensity} intensity, adjusting volume only`);
+        const normalizedVolume = 0.3 + (value * 0.7);
+        audioManager.setVolume(asset.id, normalizedVolume);
+      } else {
+        // Different intensity or not playing - stop the current one and start the new one
+        console.log(`[Audio Debug] Changing ${sound} from ${currentlyPlayingRef.current[sound]} to ${asset.id}`);
+        // Stop all instances of this sound type
+        Object.values(audioAssets[sound]).forEach(a => {
+          audioManager.stopSound(a.id);
+        });
+        
+        // Update the last update time and intensity
+        lastSliderUpdateRef.current[sound] = { 
+          time: now,
+          intensity: currentIntensity
+        };
+        
+        // Only proceed if the value is greater than 0 (don't check state)
+        if (value > 0) {
+          const normalizedVolume = 0.3 + (value * 0.7);
+          
+          // Play the new sound
+          await audioManager.playSound({
+            id: asset.id,
+            url: asset.url
+          }, normalizedVolume);
+          
+          // Update currently playing reference
+          currentlyPlayingRef.current[sound] = asset.id;
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to handle audio for ${sound}:`, error);
+      
+      // Emergency cleanup on error
+      if (hasAudioAsset(sound)) {
+        Object.values(audioAssets[sound]).forEach(asset => {
+          audioManager.stopSound(asset.id);
+        });
+        // Clear currently playing reference
+        currentlyPlayingRef.current[sound] = '';
+      }
+    }
+  }, [hasAudioAsset, sounds]);
+
+  // Mouse move handler (defined at component level)
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!currentSoundRef.current || !isMouseDownRef.current[currentSoundRef.current]) return;
+    
+    const sound = currentSoundRef.current;
+    
+    // Find the slider element
+    const sliderElement = document.querySelector(`[data-sound="${sound}"]`);
+    if (!sliderElement) return;
+    
+    const rect = sliderElement.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    const height = rect.height;
+    const value = Math.max(0, Math.min(1, 1 - (mouseY / height)));
+    
+    // Set state directly for immediate feedback
+    setSounds(prev => ({
+      ...prev,
+      [sound]: {
+        ...prev[sound],
+        targetValue: value,
+        value: value,
+        isActive: value > 0,
+        showSlider: true
+      }
+    }));
+    
+    // Process audio
+    if (sliderThrottleTimeRef.current[sound]) {
+      clearTimeout(sliderThrottleTimeRef.current[sound]);
+    }
+    sliderThrottleTimeRef.current[sound] = setTimeout(() => {
+      playSoundWithThrottle(sound, value);
+    }, 5);
+    
+    e.preventDefault();
+  }, [setSounds, playSoundWithThrottle]);
+  
+  // Mouse up handler (defined at component level)
+  const handleMouseUp = useCallback(() => {
+    if (currentSoundRef.current) {
+      isMouseDownRef.current[currentSoundRef.current] = false;
+    }
+    currentSoundRef.current = null;
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+
+  // Smooth value updates - make it almost immediate for better responsiveness
   useEffect(() => {
     const updateValues = () => {
       let needsUpdate = false;
@@ -71,9 +218,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
 
       Object.entries(sounds).forEach(([sound, state]) => {
         if (state.targetValue !== undefined && state.value !== state.targetValue) {
-          // Smooth transition to target value
+          // Faster transition to target value (0.5 = very responsive)
           const diff = state.targetValue - state.value;
-          const step = diff * 0.1; // Adjust this value to control smoothing speed
+          const step = diff * 0.5; 
           
           if (Math.abs(diff) > 0.001) {
             newSounds[sound as SoundType] = {
@@ -185,96 +332,6 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     };
   }, []);
 
-  const hasAudioAsset = (soundType: string): boolean => {
-    return soundType in audioAssets;
-  };
-
-  // Get sound intensity based on value
-  const getSoundIntensity = (value: number): 'soft' | 'moderate' | 'strong' => {
-    if (value <= 0.33) return 'soft';
-    if (value <= 0.66) return 'moderate';
-    return 'strong';
-  };
-
-  // Track currently playing sounds and their intensities
-  const currentlyPlayingRef = useRef<Record<SoundType, string>>({} as Record<SoundType, string>);
-
-  // Handle audio playback with appropriate throttling
-  const playSoundWithThrottle = useCallback(async (sound: SoundType, value: number) => {
-    if (!hasAudioAsset(sound)) return;
-    
-    try {
-      const now = Date.now();
-      const lastUpdate = lastSliderUpdateRef.current[sound] || { time: 0 };
-      const currentIntensity = getSoundIntensity(value);
-      
-      // If value is 0, just ensure sound is stopped and exit
-      if (value === 0) {
-        // Double-check that all instances are stopped
-        const assetIds = Object.values(audioAssets[sound]).map(asset => asset.id);
-        audioManager.ensureAllStopped(assetIds);
-        // Clear currently playing reference
-        currentlyPlayingRef.current[sound] = '';
-        return;
-      }
-      
-      // Skip if the last update was too recent and intensity hasn't changed
-      if (now - lastUpdate.time < 150 && lastUpdate.intensity === currentIntensity) {
-        return;
-      }
-      
-      // Get asset for this intensity
-      const asset = audioAssets[sound]?.find(a => a.intensity === currentIntensity);
-      if (!asset) return;
-      
-      // Check if the same sound with the same intensity is already playing
-      if (currentlyPlayingRef.current[sound] === asset.id) {
-        // Same sound already playing, just update volume if needed
-        console.log(`[Audio Debug] ${sound} already playing at ${currentIntensity} intensity, adjusting volume only`);
-        const normalizedVolume = 0.3 + (value * 0.7);
-        audioManager.setVolume(asset.id, normalizedVolume);
-      } else {
-        // Different intensity or not playing - stop the current one and start the new one
-        console.log(`[Audio Debug] Changing ${sound} from ${currentlyPlayingRef.current[sound]} to ${asset.id}`);
-        // Stop all instances of this sound type
-        Object.values(audioAssets[sound]).forEach(a => {
-          audioManager.stopSound(a.id);
-        });
-        
-        // Update the last update time and intensity
-        lastSliderUpdateRef.current[sound] = { 
-          time: now,
-          intensity: currentIntensity
-        };
-        
-        // Only proceed if the sound is still active
-        if (sounds[sound].isActive && value > 0) {
-          const normalizedVolume = 0.3 + (value * 0.7);
-          
-          // Play the new sound
-          await audioManager.playSound({
-            id: asset.id,
-            url: asset.url
-          }, normalizedVolume);
-          
-          // Update currently playing reference
-          currentlyPlayingRef.current[sound] = asset.id;
-        }
-      }
-    } catch (error) {
-      console.error(`Failed to handle audio for ${sound}:`, error);
-      
-      // Emergency cleanup on error
-      if (hasAudioAsset(sound)) {
-        Object.values(audioAssets[sound]).forEach(asset => {
-          audioManager.stopSound(asset.id);
-        });
-        // Clear currently playing reference
-        currentlyPlayingRef.current[sound] = '';
-      }
-    }
-  }, [hasAudioAsset, sounds]);
-
   // Memoize the slider change handler with throttling
   const handleSliderChange = useCallback((sound: SoundType, value: number) => {
     // Clear existing timeout for this sound
@@ -293,10 +350,10 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
       }
     }));
     
-    // Throttle the actual audio playback
+    // Throttle the actual audio playback - use minimal delay
     sliderThrottleTimeRef.current[sound] = setTimeout(() => {
       playSoundWithThrottle(sound, value);
-    }, 50); // Small delay to avoid too many rapid changes
+    }, 10); // Reduced to minimum (10ms) for maximum responsiveness
     
   }, [sounds, playSoundWithThrottle]);
 
@@ -372,46 +429,180 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
   }, [sounds, hasAudioAsset]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50">
+    <div 
+      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50"
+      onTouchMove={(e) => {
+        // Prevent scrolling on mobile devices
+        e.preventDefault();
+      }}
+    >
       <div className="grid grid-cols-5 md:grid-cols-10 gap-2 md:gap-4">
         {Object.entries(sounds).map(([sound, state]) => {
             const Icon = soundIcons[sound as keyof typeof soundIcons];
           const isActive = state.isActive;
             const hasAudio = hasAudioAsset(sound);
             return (
-              <div key={sound} className="flex flex-col items-center gap-2">
+              <div key={sound} className="flex flex-col items-center gap-4 md:gap-6">
               {/* Slider container - hidden on mobile until interaction */}
-              <div className={`relative h-32 md:h-36 w-12 flex items-center justify-center transition-all duration-300 ${
+              <div 
+                className={`relative h-32 md:h-36 w-16 flex items-center justify-center transition-all duration-300 ${
                 state.showSlider ? 'opacity-100' : 'opacity-0 md:opacity-100'
-              }`}>
-                  {/* Slider track background */}
-                  <div className="absolute inset-0 w-2 mx-auto rounded-full bg-gray-700/30" />
+                } hover:scale-105`}
+                data-sound={sound}
+                style={{ cursor: 'pointer' }}
+                // Touch handlers for mobile/iOS
+                onTouchStart={(e) => {
+                  // Immediately calculate the value based on touch position
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const touchY = e.touches[0].clientY - rect.top;
+                  const height = rect.height;
+                  const value = Math.max(0, Math.min(1, 1 - (touchY / height)));
+                  
+                  // Set state directly for immediate feedback
+                  setSounds(prev => ({
+                    ...prev,
+                    [sound as SoundType]: {
+                      ...prev[sound as SoundType],
+                      targetValue: value,
+                      value: value, // Direct update for immediate response
+                      isActive: value > 0,
+                      showSlider: true
+                    }
+                  }));
+                  
+                  // Process audio with minimal delay
+                  if (sliderThrottleTimeRef.current[sound as SoundType]) {
+                    clearTimeout(sliderThrottleTimeRef.current[sound as SoundType]);
+                  }
+                  sliderThrottleTimeRef.current[sound as SoundType] = setTimeout(() => {
+                    playSoundWithThrottle(sound as SoundType, value);
+                  }, 5);
+                  
+                  e.stopPropagation();
+                }}
+                onTouchMove={(e) => {
+                  // Immediately calculate the value based on touch position
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const touchY = e.touches[0].clientY - rect.top;
+                  const height = rect.height;
+                  const value = Math.max(0, Math.min(1, 1 - (touchY / height)));
+                  
+                  // Set state directly for immediate feedback  
+                  setSounds(prev => ({
+                    ...prev,
+                    [sound as SoundType]: {
+                      ...prev[sound as SoundType],
+                      targetValue: value,
+                      value: value, // Direct update for immediate response
+                      isActive: value > 0,
+                      showSlider: true
+                    }
+                  }));
+                  
+                  // Process audio with minimal delay
+                  if (sliderThrottleTimeRef.current[sound as SoundType]) {
+                    clearTimeout(sliderThrottleTimeRef.current[sound as SoundType]);
+                  }
+                  sliderThrottleTimeRef.current[sound as SoundType] = setTimeout(() => {
+                    playSoundWithThrottle(sound as SoundType, value);
+                  }, 5);
+                  
+                  e.preventDefault(); // Prevent scrolling while dragging
+                  e.stopPropagation();
+                }}
+                // Mouse handlers for desktop browsers
+                onMouseDown={(e) => {
+                  // Set the current sound and mouse down flag
+                  currentSoundRef.current = sound as SoundType;
+                  isMouseDownRef.current[sound as SoundType] = true;
+                  
+                  // Calculate value based on mouse position
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const mouseY = e.clientY - rect.top;
+                  const height = rect.height;
+                  const value = Math.max(0, Math.min(1, 1 - (mouseY / height)));
+                  
+                  // Set state directly for immediate feedback
+                  setSounds(prev => ({
+                    ...prev,
+                    [sound as SoundType]: {
+                      ...prev[sound as SoundType],
+                      targetValue: value,
+                      value: value,
+                      isActive: value > 0,
+                      showSlider: true
+                    }
+                  }));
+                  
+                  // Process audio
+                  if (sliderThrottleTimeRef.current[sound as SoundType]) {
+                    clearTimeout(sliderThrottleTimeRef.current[sound as SoundType]);
+                  }
+                  sliderThrottleTimeRef.current[sound as SoundType] = setTimeout(() => {
+                    playSoundWithThrottle(sound as SoundType, value);
+                  }, 5);
+                  
+                  // Add window-level event listeners for mouse move and mouse up
+                  window.addEventListener('mousemove', handleMouseMove);
+                  window.addEventListener('mouseup', handleMouseUp);
+                  
+                  // Prevent default to avoid text selection
+                  e.preventDefault();
+                }}
+              >
+                  {/* Slider track background - with extended hitbox */}
+                  <div className="absolute inset-0 w-6 md:w-8 mx-auto rounded-full bg-gray-700/30 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
                   
                   {/* Active track */}
                   <div 
-                    className={`absolute bottom-0 w-2 mx-auto rounded-full transition-all ${
+                    className={`absolute bottom-0 w-6 md:w-8 mx-auto rounded-full transition-all ${
                       isActive 
                         ? hasAudio 
-                          ? 'bg-blue-500/50' 
+                          ? 'bg-blue-500/30' 
                           : 'bg-purple-500/50'
                         : 'bg-gray-500/30'
                     }`}
                   style={{ height: `${state.value * 100}%` }}
                   />
                   
-                {/* Slider input with increased touch area */}
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                  value={state.value}
-                    onChange={(e) => handleSliderChange(sound as SoundType, parseFloat(e.target.value))}
-                  className="absolute h-full w-8 md:w-2 appearance-none bg-transparent cursor-pointer touch-manipulation"
+                  {/* Tick marks for the scale - positioned on both sides */}
+                  <div className="absolute inset-y-0 w-full flex flex-col justify-between py-4 pointer-events-none">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="w-full flex justify-between items-center px-3">
+                        <div className="w-2 h-0.5 bg-gray-400/40"></div>
+                        <div className="w-2 h-0.5 bg-gray-400/40"></div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Slider tip/handle */}
+                  <div 
+                    className="absolute transition-all bg-gray-500/95 pointer-events-none hover:scale-110"
                     style={{
-                      WebkitAppearance: 'slider-vertical',
+                      width: '32px',
+                      height: '18px',
+                      bottom: `calc(${Math.max(0.05, state.value) * 100}%)`,
+                      transform: 'translateY(50%)',
+                      left: 'calc(50% - 16px)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                     }}
-                  />
+                  >
+                    {/* Central black vertical line - positioned exactly in center */}
+                    <div className="absolute left-1/2 top-0 bottom-0 w-2 -translate-x-1/2 bg-black/80"></div>
+                    
+                    {/* Horizontal lines inside the handle */}
+                    <div className="absolute inset-0 flex flex-col justify-center items-center">
+                      <div className="w-full flex items-center justify-center my-0.5">
+                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
+                      </div>
+                      <div className="w-full flex items-center justify-center my-0.5">
+                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
+                      </div>
+                      <div className="w-full flex items-center justify-center my-0.5">
+                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Icon and label with blurred background */}

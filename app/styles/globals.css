@@ -1,0 +1,21 @@
+/* Add to existing CSS */
+
+/* Prevent scroll on mobile */
+html, body {
+  overscroll-behavior: none;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+  touch-action: none;
+}
+
+/* Only apply these styles on mobile devices */
+@media (max-width: 768px) {
+  * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+} 

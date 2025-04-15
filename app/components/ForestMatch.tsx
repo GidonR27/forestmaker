@@ -13,7 +13,7 @@ export default function ForestMatch({ forest }: ForestMatchProps) {
         <div className="text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white/90">Forest Maker</h2>
           <p className="text-sm md:text-base text-white/70">
-            Turn your phone's sound ON. Tap sounds and use sliders to create your perfect forest atmosphere.
+            Turn your device's sound ON. Tap sounds and use sliders to create your perfect forest atmosphere.
           </p>
         </div>
       ) : (
