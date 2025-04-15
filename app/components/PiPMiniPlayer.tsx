@@ -1138,34 +1138,15 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
             </div>
           )}
         </div>
-        <div className="p-2 flex justify-between items-center bg-gray-800">
-          <span className="text-white text-sm truncate">
-            {forest?.name || 'Select a forest'}
-          </span>
-          <div className="flex space-x-2">
-            {isIOS && (
-              <span className="text-white text-xs flex items-center">
-                <TbDeviceMobile className="mr-1" size={16} />
-                iOS
-              </span>
-            )}
-            {/* AirPlay/Cast button */}
-            <IconButton 
-              icon={TbCast} 
-              onClick={showAirPlayPicker} 
-              variant="secondary"
-              size="sm"
-              tooltip="AirPlay/Cast to TV"
-            />
-            <IconButton 
-              icon={TbPictureInPicture} 
-              onClick={enterPiPMode} 
-              variant="secondary"
-              size="sm"
-              tooltip={isPiPSupported ? "Open Picture-in-Picture" : "PiP not supported"}
-              disabled={isPiPActive || !isPiPSupported}
-            />
-          </div>
+        <div className="p-2 flex justify-center items-center bg-gray-800">
+          <button 
+            onClick={enterPiPMode}
+            disabled={isPiPActive || !isPiPSupported}
+            className="text-white text-sm flex items-center justify-center hover:text-blue-300 transition-colors duration-200"
+            aria-label="Enter Picture-in-Picture mode"
+          >
+            Tap <TbPictureInPicture className="mx-1" size={18} /> to play in background
+          </button>
         </div>
         {/* Close button */}
         <button 
