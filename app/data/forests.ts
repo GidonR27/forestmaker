@@ -29,16 +29,16 @@ export const forests: Forest[] = [
     vibe: 'Lush, vibrant, and teeming with life',
     imageUrl: '/assets/images/Amazon.jpg',
     soundProfile: {
-      wind: 0.2,    // Light wind due to dense canopy
-      rain: 0.8,    // Heavy rainfall
-      birds: 0.9,   // Many bird species
-      thunder: 0.7, // Frequent thunderstorms
-      water: 0.6,   // Rivers and streams
-      insects: 0.9, // Abundant insects
-      mammals: 0.7, // Various mammals
-      fire: 0.1,    // Rare fires
-      ambient: 0.8, // Rich ambient sounds
-      spiritual: 0.3 // Indigenous spiritual presence
+      wind: 0.1,    // Very light wind due to dense canopy - reduced from 0.2
+      rain: 0.9,    // Very heavy rainfall - increased from 0.8
+      birds: 1.0,   // Extremely high bird diversity - increased from 0.9
+      thunder: 0.8, // More frequent thunderstorms - increased from 0.7
+      water: 0.7,   // More rivers and streams - increased from 0.6
+      insects: 0.9, // Same abundant insects
+      mammals: 0.6, // Fewer mammals - reduced from 0.7
+      fire: 0.0,    // Almost no fires - reduced from 0.1
+      ambient: 0.9, // Richer ambient sounds - increased from 0.8
+      spiritual: 0.4 // Slightly more spiritual - increased from 0.3
     }
   },
   {
@@ -105,16 +105,16 @@ export const forests: Forest[] = [
     vibe: 'Cold, vast, and resilient',
     imageUrl: '/assets/images/Taiga.png',
     soundProfile: {
-      wind: 0.8,    // Strong winds
-      rain: 0.3,    // Light rainfall
-      birds: 0.3,   // Few birds
-      thunder: 0.2, // Rare thunderstorms
-      water: 0.2,   // Some streams
-      insects: 0.2, // Few insects
-      mammals: 0.5, // Some mammals
-      fire: 0.2,    // Occasional fires
-      ambient: 0.4, // Quiet ambient sounds
-      spiritual: 0.3 // Light spiritual presence
+      wind: 0.9,    // Very strong winds - increased from 0.8
+      rain: 0.2,    // Less rainfall - reduced from 0.3
+      birds: 0.4,   // More birds - increased from 0.3
+      thunder: 0.2, // Same thunderstorms
+      water: 0.3,   // More streams - increased from 0.2
+      insects: 0.1, // Fewer insects - reduced from 0.2
+      mammals: 0.6, // More mammals - increased from 0.5 
+      fire: 0.3,    // More fires - increased from 0.2
+      ambient: 0.3, // Less ambient - reduced from 0.4
+      spiritual: 0.5 // More spiritual - increased from 0.3
     }
   },
   {
@@ -238,16 +238,16 @@ export const forests: Forest[] = [
     vibe: 'Ancient, wet, and mysterious',
     imageUrl: '/assets/images/Valdivian.png',
     soundProfile: {
-      wind: 0.5,    // Moderate winds
-      rain: 0.8,    // Heavy rainfall
-      birds: 0.6,   // Many birds
-      thunder: 0.4, // Occasional storms
-      water: 0.7,   // Many streams
-      insects: 0.5, // Moderate insects
-      mammals: 0.4, // Some mammals
-      fire: 0.1,    // Rare fires
-      ambient: 0.7, // Mysterious ambient sounds
-      spiritual: 0.5 // Moderate spiritual presence
+      wind: 0.6,    // More winds - increased from 0.5
+      rain: 0.9,    // Very heavy rainfall - increased from 0.8
+      birds: 0.4,   // Fewer birds - reduced from 0.6
+      thunder: 0.3, // Less storms - reduced from 0.4
+      water: 0.8,   // More streams - increased from 0.7
+      insects: 0.3, // Fewer insects - reduced from 0.5
+      mammals: 0.6, // More mammals - increased from 0.4
+      fire: 0.0,    // Almost no fires - reduced from 0.1
+      ambient: 0.8, // More mysterious ambient - increased from 0.7
+      spiritual: 0.4 // Less spiritual - reduced from 0.5
     }
   },
   {
@@ -257,16 +257,16 @@ export const forests: Forest[] = [
     vibe: 'Lush, diverse, and ancient',
     imageUrl: '/assets/images/Sinharaja.png',
     soundProfile: {
-      wind: 0.3,    // Light winds
-      rain: 0.8,    // Heavy rainfall
-      birds: 0.8,   // Many birds
-      thunder: 0.6, // Frequent storms
-      water: 0.6,   // Many streams
-      insects: 0.8, // Many insects
-      mammals: 0.5, // Various mammals
-      fire: 0.1,    // Rare fires
-      ambient: 0.7, // Rich ambient sounds
-      spiritual: 0.4 // Light spiritual presence
+      wind: 0.2,    // Less wind - reduced from 0.3
+      rain: 0.7,    // Less rainfall - reduced from 0.8
+      birds: 0.9,   // More birds - increased from 0.8
+      thunder: 0.7, // More storms - increased from 0.6
+      water: 0.5,   // Less water - reduced from 0.6
+      insects: 0.9, // More insects - increased from 0.8
+      mammals: 0.4, // Less mammals - reduced from 0.5
+      fire: 0.1,    // Same rare fires
+      ambient: 0.6, // Less ambient - reduced from 0.7
+      spiritual: 0.6 // More spiritual - increased from 0.4
     }
   },
   {
@@ -298,16 +298,16 @@ export const forests: Forest[] = [
     vibe: 'temperate, misty, mossy, ancient, peaceful',
     imageUrl: '/assets/images/Hoh2.png',
     soundProfile: {
-      wind: 0.5,
-      rain: 0.8,
-      birds: 0.6,
-      thunder: 0.2,
-      water: 0.7,
-      insects: 0.5,
-      mammals: 0.4,
-      fire: 0.1,
-      ambient: 0.6,
-      spiritual: 0.3
+      wind: 0.4,    // Less wind - reduced from 0.5
+      rain: 0.9,    // More rainfall (one of the wettest temperate rainforests) - increased from 0.8
+      birds: 0.5,   // Fewer birds - reduced from 0.6
+      thunder: 0.3, // Slightly more thunder - increased from 0.2
+      water: 0.8,   // More water sounds - increased from 0.7
+      insects: 0.4, // Fewer insects - reduced from 0.5
+      mammals: 0.5, // More mammals - increased from 0.4
+      fire: 0.0,    // Almost no fires - reduced from 0.1
+      ambient: 0.7, // More ambient sounds - increased from 0.6
+      spiritual: 0.4 // More spiritual - increased from 0.3
     }
   },
   {
@@ -336,16 +336,16 @@ export const forests: Forest[] = [
     vibe: 'Dense, mysterious, and alive',
     imageUrl: '/assets/images/Congo.png',
     soundProfile: {
-      wind: 0.2,    // Light wind
-      rain: 0.8,    // Heavy rainfall
-      birds: 0.8,   // Many birds
-      thunder: 0.6, // Frequent storms
-      water: 0.6,   // Many streams
-      insects: 0.9, // Many insects
-      mammals: 0.8, // Many mammals
-      fire: 0.1,    // Rare fires
-      ambient: 0.8, // Rich ambient sounds
-      spiritual: 0.4 // Moderate spiritual presence
+      wind: 0.3,    // More wind - increased from 0.2
+      rain: 0.7,    // Less rainfall - reduced from 0.8
+      birds: 0.7,   // Fewer birds - reduced from 0.8
+      thunder: 0.5, // Less thunder - reduced from 0.6
+      water: 0.5,   // Fewer streams - reduced from 0.6
+      insects: 1.0, // Maximum insects - increased from 0.9
+      mammals: 0.9, // More mammals (gorillas, elephants) - increased from 0.8
+      fire: 0.2,    // More fires - increased from 0.1
+      ambient: 0.7, // Less ambient - reduced from 0.8
+      spiritual: 0.6 // Stronger spiritual - increased from 0.4
     }
   },
   {
@@ -355,16 +355,16 @@ export const forests: Forest[] = [
     vibe: 'Wild, coastal, and pristine',
     imageUrl: '/assets/images/Bear.jpg',
     soundProfile: {
-      wind: 0.7,    // Strong coastal winds
-      rain: 0.8,    // Heavy rainfall
-      birds: 0.6,   // Coastal birds
-      thunder: 0.4, // Occasional storms
-      water: 0.7,   // Coastal waters
-      insects: 0.4, // Moderate insects
-      mammals: 0.7, // Many mammals
-      fire: 0.2,    // Rare fires
-      ambient: 0.6, // Rich ambient sounds
-      spiritual: 0.5 // Moderate spiritual presence
+      wind: 0.5,    // Moderate coastal winds - reduced from 0.7
+      rain: 0.7,    // Substantial rainfall - reduced from 0.8
+      birds: 0.7,   // More bird activity - increased from 0.6
+      thunder: 0.3, // Less thunderstorms - reduced from 0.4
+      water: 0.8,   // More water sounds (streams, waterfalls) - increased from 0.7
+      insects: 0.3, // Fewer insects - reduced from 0.4
+      mammals: 0.9, // Significantly more mammals (bears, wolves, etc.) - increased from 0.7
+      fire: 0.1,    // Very rare fires - reduced from 0.2
+      ambient: 0.5, // Slightly quieter ambient - reduced from 0.6
+      spiritual: 0.7 // More spiritual presence - increased from 0.5
     }
   },
   {
