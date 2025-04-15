@@ -551,11 +551,11 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                 }}
               >
                   {/* Slider track background - with extended hitbox */}
-                  <div className="absolute inset-0 w-6 md:w-8 mx-auto rounded-full bg-gray-700/30 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
+                  <div className="absolute inset-0 w-2 md:w-2.5 mx-auto rounded-full bg-gray-700/30 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
                   
                   {/* Active track */}
                   <div 
-                    className={`absolute bottom-0 w-6 md:w-8 mx-auto rounded-full transition-all ${
+                    className={`absolute bottom-0 w-2 md:w-2.5 mx-auto rounded-full transition-all ${
                       isActive 
                         ? hasAudio 
                           ? 'bg-blue-500/30' 
