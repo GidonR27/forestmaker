@@ -294,30 +294,66 @@ export class AudioManager {
   }
 
   stopAllSounds(): void {
-    console.log(`[Audio Debug] Stopping all sounds, count: ${this.activeSources.size}`);
+    if (!this._audioContext) return;
     
-    // Get a list of all source IDs first (to avoid modification during iteration)
-    const allSourceIds = Array.from(this.activeSources.keys());
+    console.log('[Audio Debug] Stopping all sounds forcefully');
     
-    // Use our thorough cleanup for each sound
-    allSourceIds.forEach(assetId => {
-      try {
-        const source = this.activeSources.get(assetId);
-        if (source) {
-          console.log(`[Audio Debug] Stopping sound: ${assetId}`);
-          source.stop();
-          this.activeSources.delete(assetId);
+    // Keep track of how many sounds we're stopping
+    const soundCount = this.activeSources.size;
+    console.log(`[Audio Debug] Attempting to stop ${soundCount} active sounds`);
+    
+    // Create a copy of the keys to avoid modification during iteration
+    const soundIds = Array.from(this.activeSources.keys());
+    
+    // Force immediate muting of all sounds first (to prevent stuttering)
+    soundIds.forEach(id => {
+      const gainNode = this.activeGains.get(id);
+      if (gainNode) {
+        try {
+          // Immediately set gain to zero to prevent any audible artifacts
+          gainNode.gain.value = 0;
+          console.log(`[Audio Debug] Muted sound ${id} immediately`);
+        } catch (e) {
+          console.error(`[Audio Debug] Error muting sound ${id}:`, e);
         }
-        
-        const gain = this.activeGains.get(assetId);
-        if (gain) {
-          gain.disconnect();
-          this.activeGains.delete(assetId);
-        }
-      } catch (error) {
-        console.error(`[Audio Debug] Failed to stop sound ${assetId}:`, error);
       }
     });
+    
+    // Now stop all sources
+    soundIds.forEach(id => {
+      this.cleanupSound(id);
+    });
+    
+    // For iOS PiP issues, also try to disconnect all AudioNodes completely
+    if (this.isIOS) {
+      try {
+        // Extra safety step: disconnect all nodes from destination
+        this.activeGains.forEach((gainNode, id) => {
+          try {
+            gainNode.disconnect();
+            console.log(`[Audio Debug] Forcefully disconnected gain node for ${id}`);
+          } catch (e) {
+            // Ignore disconnect errors
+          }
+        });
+        
+        // Clear out all tracking maps
+        this.activeSources.clear();
+        this.activeGains.clear();
+        
+        // If we have a PiP connection, ensure we break that too
+        if (this.connectToPiP) {
+          this.connectToPiP = undefined;
+          console.log('[Audio Debug] Cleared PiP connection function');
+        }
+        
+        console.log('[Audio Debug] All audio connections forcefully cleared for iOS');
+      } catch (e) {
+        console.error('[Audio Debug] Error during emergency iOS audio cleanup:', e);
+      }
+    }
+    
+    console.log('[Audio Debug] All sounds stopped');
   }
 
   // Get audio context state, including handling iOS-specific states

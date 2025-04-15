@@ -1042,6 +1042,57 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
     }
   };
 
+  // Add an event listener for media session state changes
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    
+    // Create a MutationObserver to monitor changes to media playback state
+    const checkMediaSessionState = () => {
+      if (navigator.mediaSession.playbackState === 'paused' || 
+          navigator.mediaSession.playbackState === 'none') {
+        console.log('[PiP Debug] Detected media session paused state while in PiP');
+        
+        // If we're in PiP mode and iOS pauses, force full audio stop
+        if (isPiPActive && isIOS) {
+          console.log('[PiP Debug] iOS PiP - ensuring complete audio stop on pause');
+          
+          // Force a complete audio stop to prevent stuttering
+          audioManager.stopAllSounds();
+          
+          // Reset video element to help clear audio pipeline
+          if (videoRef.current) {
+            try {
+              // Try to reset the video pipeline
+              videoRef.current.pause();
+              
+              // For iOS in PiP, this could help break audio stuttering loops
+              if (streamRef.current) {
+                const tracks = streamRef.current.getAudioTracks();
+                tracks.forEach(track => {
+                  console.log('[PiP Debug] Stopping audio track in PiP');
+                  track.stop();
+                });
+              }
+            } catch (e) {
+              console.error('[PiP Debug] Error handling PiP pause:', e);
+            }
+          }
+        }
+      }
+    };
+    
+    // Periodically check media session state for iOS in PiP mode
+    const intervalId = setInterval(() => {
+      if (isPiPActive && isIOS) {
+        checkMediaSessionState();
+      }
+    }, 500);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isPiPActive, isIOS]);
+
   // Don't render if not visible
   if (!isVisible) return null;
 

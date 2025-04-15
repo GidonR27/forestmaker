@@ -73,21 +73,55 @@ export default function Home() {
             // Store current sound values before pausing
             lastSoundValuesRef.current = {...soundValues};
             
-            // Pause all sounds
-            audioManager.stopAllSounds();
+            // Detect iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            // For iOS in PiP mode, we need a more aggressive approach
+            if (isIOS && isPiPVisible) {
+              console.log('[DEBUG] iOS pause in PiP mode detected - forcefully stopping all audio');
+              
+              // Force disconnection of all sounds immediately
+              audioManager.stopAllSounds();
+              
+              // Clear active sounds in state
+              setActiveSounds(new Set());
+              
+              // Reset all sound values to zero
+              const resetValues: Record<SoundType, number> = {
+                wind: 0, rain: 0, birds: 0, thunder: 0, water: 0,
+                insects: 0, mammals: 0, fire: 0, ambient: 0, spiritual: 0
+              };
+              setSoundValues(resetValues);
+            } else {
+              // Standard pause for non-iOS or when not in PiP
+              audioManager.stopAllSounds();
+            }
+            
             setIsPaused(true);
             setMediaSessionPlaybackState('paused');
           },
           onStop: () => {
             // Stop all sounds
             audioManager.stopAllSounds();
+            
+            // Clear active sounds in state
+            setActiveSounds(new Set());
+            
+            // Reset all sound values to zero
+            const resetValues: Record<SoundType, number> = {
+              wind: 0, rain: 0, birds: 0, thunder: 0, water: 0,
+              insects: 0, mammals: 0, fire: 0, ambient: 0, spiritual: 0
+            };
+            setSoundValues(resetValues);
+            
             setIsPaused(true);
             setMediaSessionPlaybackState('none');
           }
         }
       });
     }
-  }, []);
+  }, [isPiPVisible]);
 
   // Update Media Session metadata when forest changes
   useEffect(() => {

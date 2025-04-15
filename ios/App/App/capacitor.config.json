@@ -1,0 +1,30 @@
+{
+	"appId": "com.forestmaker.app",
+	"appName": "Forest Maker",
+	"webDir": "dist",
+	"plugins": {
+		"App": {
+			"appUrl": "https://forestmaker.app",
+			"appName": "Forest Maker"
+		},
+		"BackgroundRunner": {
+			"backgroundTask": {
+				"name": "audioPlayback",
+				"interval": 1000
+			}
+		},
+		"LocalNotifications": {
+			"smallIcon": "ic_stat_icon_config_sample",
+			"iconColor": "#0f172a"
+		}
+	},
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"BackgroundRunnerPlugin",
+		"LocalNotificationsPlugin"
+	]
+}
