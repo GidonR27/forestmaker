@@ -77,6 +77,25 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     });
   }, []);
 
+  // Function to get a rainbow color based on position
+  const getRainbowColor = (pos: number): string => {
+    // Create a rainbow gradient (red, orange, yellow, green, blue, indigo, violet)
+    const colors = [
+      'rgb(255, 50, 50, 0.9)',   // bright red (bottom)
+      'rgb(255, 165, 0, 0.9)',   // orange
+      'rgb(255, 255, 0, 0.9)',   // yellow
+      'rgb(0, 255, 50, 0.9)',    // bright green
+      'rgb(0, 170, 255, 0.9)',   // bright blue
+      'rgb(130, 0, 255, 0.9)'    // bright violet (top)
+    ];
+    
+    // Calculate which segment of the rainbow this position falls into
+    const segment = Math.min(Math.floor(pos * (colors.length - 1)), colors.length - 2);
+    
+    // Return the appropriate color based on position
+    return colors[colors.length - 1 - segment];
+  };
+
   const hasAudioAsset = (soundType: string): boolean => {
     return soundType in audioAssets;
   };
@@ -601,9 +620,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
 
   return (
     <div 
-      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50" 
+      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50"
     >
-      <div className="grid grid-cols-5 md:grid-cols-10 gap-2 md:gap-4">
+      <div className="grid grid-cols-5 md:grid-cols-10 gap-x-2 gap-y-5 md:gap-4">
         {Object.entries(sounds).map(([sound, state]) => {
             const Icon = soundIcons[sound as keyof typeof soundIcons];
           const isActive = state.isActive;
@@ -748,23 +767,6 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                       // Rainbow colors for active part
                       // Map the position to a color in the rainbow spectrum
                       // Position 5 (bottom) = red, Position 0 (top) = violet
-                      const getRainbowColor = (pos: number) => {
-                        // Create a rainbow gradient (red, orange, yellow, green, blue, indigo, violet)
-                        const colors = [
-                          'rgb(255, 50, 50, 0.9)',   // bright red (bottom)
-                          'rgb(255, 165, 0, 0.9)',   // orange
-                          'rgb(255, 255, 0, 0.9)',   // yellow
-                          'rgb(0, 255, 50, 0.9)',    // bright green
-                          'rgb(0, 170, 255, 0.9)',   // bright blue
-                          'rgb(130, 0, 255, 0.9)'    // bright violet (top)
-                        ];
-                        
-                        // Calculate which segment of the rainbow this position falls into
-                        const segment = Math.min(Math.floor(pos * (colors.length - 1)), colors.length - 2);
-                        
-                        // Return the appropriate color based on position
-                        return colors[colors.length - 1 - segment];
-                      };
                       
                       // Get active color based on position in the slider
                       const activeColor = hasAudio 
@@ -790,41 +792,45 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                       }
                       
                       return (
-                        <div key={i} className="w-full flex justify-between items-center px-3">
+                      <div key={i} className="w-full flex justify-between items-center px-3">
                           <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
                           <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
-                        </div>
+                      </div>
                       );
                     })}
                   </div>
 
                   {/* Slider tip/handle */}
                   <div 
-                    className="absolute transition-all bg-gray-500/95 pointer-events-none hover:scale-110 will-change-transform"
+                    className="absolute transition-all pointer-events-none hover:scale-110 will-change-transform"
                     style={{
                       width: '32px',
-                      height: '18px',
+                      height: '32px',
                       bottom: `calc(${Math.max(0.05, state.value) * 100}%)`,
                       transform: 'translateY(50%) translateZ(0)',
                       left: 'calc(50% - 16px)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      backgroundColor: 'rgba(200, 200, 200, 0.95)',
+                      borderRadius: '50%',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.1)',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center'
                     }}
                   >
-                    {/* Central black vertical line - positioned exactly in center */}
-                    <div className="absolute left-1/2 top-0 bottom-0 w-2 -translate-x-1/2 bg-black/80"></div>
-                    
-                    {/* Horizontal lines inside the handle */}
-                    <div className="absolute inset-0 flex flex-col justify-center items-center">
-                      <div className="w-full flex items-center justify-center my-0.5">
-                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
-                      </div>
-                      <div className="w-full flex items-center justify-center my-0.5">
-                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
-                      </div>
-                      <div className="w-full flex items-center justify-center my-0.5">
-                        <div className="w-full h-0.5 bg-gray-700/80 mx-2"></div>
-                      </div>
-                    </div>
+                    {/* Center dot in active/inactive color */}
+                    <div 
+                      className="transition-colors"
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: isActive 
+                          ? hasAudio 
+                            ? getRainbowColor(1 - state.value) // Use the same rainbow color function
+                            : 'rgb(168, 85, 247)' // Purple for non-audio
+                          : 'rgb(107, 114, 128)' // Gray-500 for inactive
+                      }}
+                    ></div>
                   </div>
                 </div>
                 
