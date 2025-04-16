@@ -1084,6 +1084,12 @@ export class AudioManager {
   public ensureAllStopped(assetIds: string[]): void {
     console.log(`[Audio Debug] Ensuring all instances of ${assetIds.join(', ')} are completely stopped`);
     
+    // IMPORTANT: Also clear any pending timeouts for these asset IDs
+    assetIds.forEach(baseId => {
+      // Clear any loop timeouts
+      this.clearLoopTimeoutsForAsset(baseId);
+    });
+    
     // First pass: try normal cleanup for each asset 
     assetIds.forEach(baseId => {
       this.cleanupSound(baseId);
@@ -1118,6 +1124,30 @@ export class AudioManager {
         } catch (e) {
           console.error(`[Audio Debug] Error force stopping: ${sourceId}`, e);
         }
+      }
+    });
+  }
+
+  // Clear all loop timeouts for a specific asset type
+  private clearLoopTimeoutsForAsset(assetId: string): void {
+    console.log(`[Audio Debug] Clearing all loop timeouts for ${assetId}`);
+    
+    // Find all timeouts related to this asset
+    const timeoutsToRemove: string[] = [];
+    
+    this.loopTimeouts.forEach((_, id) => {
+      if (id === assetId || id.startsWith(`${assetId}-`) || id.includes(assetId)) {
+        timeoutsToRemove.push(id);
+      }
+    });
+    
+    // Clear all matching timeouts
+    timeoutsToRemove.forEach(id => {
+      const timeout = this.loopTimeouts.get(id);
+      if (timeout) {
+        console.log(`[Audio Debug] Clearing delayed loop timeout for ${id}`);
+        clearTimeout(timeout);
+        this.loopTimeouts.delete(id);
       }
     });
   }

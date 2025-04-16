@@ -97,11 +97,24 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
       
       // If value is 0, just ensure sound is stopped and exit
       if (value === 0) {
-        // Double-check that all instances are stopped
+        // Double-check that all instances are stopped with multiple attempts to handle delayed sounds
         const assetIds = Object.values(audioAssets[sound]).map(asset => asset.id);
+        
+        // Immediate stop attempt
         audioManager.ensureAllStopped(assetIds);
+        
         // Clear currently playing reference
         currentlyPlayingRef.current[sound] = '';
+        
+        // Schedule additional stop attempts to catch delayed sounds
+        setTimeout(() => {
+          audioManager.ensureAllStopped(assetIds);
+        }, 100);
+        
+        setTimeout(() => {
+          audioManager.ensureAllStopped(assetIds);
+        }, 500);
+        
         return;
       }
       
@@ -177,13 +190,13 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     const height = rect.height;
     const value = Math.max(0, Math.min(1, 1 - (mouseY / height)));
     
-    // Set state directly for immediate feedback
+    // Direct value update for maximum responsiveness during mouse dragging
     setSounds(prev => ({
       ...prev,
       [sound]: {
         ...prev[sound],
         targetValue: value,
-        value: value,
+        value: value, // Direct value update for immediate visual feedback
         isActive: value > 0,
         showSlider: true
       }
@@ -203,6 +216,12 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
   // Mouse up handler (defined at component level)
   const handleMouseUp = useCallback(() => {
     if (currentSoundRef.current) {
+      // Remove active class from the slider when mouse up
+      const sliderElement = document.querySelector(`[data-sound="${currentSoundRef.current}"]`);
+      if (sliderElement) {
+        sliderElement.classList.remove('active-slider');
+      }
+      
       isMouseDownRef.current[currentSoundRef.current] = false;
     }
     currentSoundRef.current = null;
@@ -218,11 +237,12 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
 
       Object.entries(sounds).forEach(([sound, state]) => {
         if (state.targetValue !== undefined && state.value !== state.targetValue) {
-          // Faster transition to target value (0.5 = very responsive)
+          // Increased interpolation factor for much faster visual response (0.5 → 0.85)
           const diff = state.targetValue - state.value;
-          const step = diff * 0.5; 
+          const step = diff * 0.85; 
           
-          if (Math.abs(diff) > 0.001) {
+          // Reduced threshold for snapping to exact value (0.001 → 0.0005)
+          if (Math.abs(diff) > 0.0005) {
             newSounds[sound as SoundType] = {
               ...state,
               value: state.value + step
@@ -234,6 +254,20 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
               value: state.targetValue
             };
             needsUpdate = true;
+            
+            // If the target value is 0 and we just reached it, ensure sound is fully stopped
+            if (state.targetValue === 0 && hasAudioAsset(sound as SoundType)) {
+              const assetIds = Object.values(audioAssets[sound as SoundType]).map(asset => asset.id);
+              audioManager.ensureAllStopped(assetIds);
+              
+              // Schedule additional stop attempts to catch delayed sounds
+              setTimeout(() => {
+                audioManager.ensureAllStopped(assetIds);
+              }, 100);
+              
+              // Clear currently playing reference
+              currentlyPlayingRef.current[sound as SoundType] = '';
+            }
           }
         }
       });
@@ -251,7 +285,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [sounds]);
+  }, [sounds, hasAudioAsset]);
 
   // Debounced forest update - with increased delay
   useEffect(() => {
@@ -307,7 +341,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     }, 350); // Increased debounce delay from 100ms to 350ms
   }, [sounds, activeSounds, onSoundChange]);
 
-  // Load audio assets on mount
+  // Load audio assets on mount and cleanup on unmount
   useEffect(() => {
     const loadAudioAssets = async () => {
       try {
@@ -327,7 +361,22 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     };
 
     loadAudioAssets();
+    
+    // Cleanup function to stop all sounds when component unmounts or hot reloads
     return () => {
+      console.log('[Audio Cleanup] Stopping all sounds on component unmount');
+      // Ensure we stop all sounds, including those with delay patterns
+      Object.keys(audioAssets).forEach(soundType => {
+        const assetIds = Object.values(audioAssets[soundType as SoundType]).map(asset => asset.id);
+        audioManager.ensureAllStopped(assetIds);
+        
+        // Schedule additional stop attempts to catch any delayed sounds
+        setTimeout(() => {
+          audioManager.ensureAllStopped(assetIds);
+        }, 100);
+      });
+      
+      // Final cleanup of audio manager
       audioManager.cleanup();
     };
   }, []);
@@ -384,9 +433,34 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
         // If deactivating, stop the sound
         if (!newIsActive) {
           const assetIds = Object.values(audioAssets[sound]).map(asset => asset.id);
+          
+          // Try several aggressive methods to ensure the sound is fully stopped
+          
+          // 1. Immediate stop attempt
           audioManager.ensureAllStopped(assetIds);
-          // Clear currently playing reference
+          
+          // 2. Clear currently playing reference
           currentlyPlayingRef.current[sound] = '';
+          
+          // 3. Schedule additional stop attempts to catch delayed sounds
+          setTimeout(() => {
+            audioManager.ensureAllStopped(assetIds);
+          }, 100);
+          
+          setTimeout(() => {
+            audioManager.ensureAllStopped(assetIds);
+          }, 500);
+          
+          // 4. Force a final aggressive stop attempt after a longer delay 
+          // for sounds with complex delay mechanisms
+          setTimeout(() => {
+            console.log(`[Audio Debug] Final kill-switch attempt for ${sound}`);
+            audioManager.ensureAllStopped(assetIds);
+            
+            // Also try stopping the sound by its base type name
+            audioManager.ensureAllStopped([sound]);
+          }, 2000);
+          
           return;
         }
         
@@ -428,13 +502,65 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     }
   }, [sounds, hasAudioAsset]);
 
+  // Detect iOS Safari and set up global touch handlers
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    // Global touch move handler - works with non-passive events
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      // Find any active sliders
+      const activeSlider = document.querySelector('[data-sound][data-active="true"]');
+      if (!activeSlider) return;
+      
+      // Get the sound type from the data attribute
+      const sound = activeSlider.getAttribute('data-sound') as SoundType;
+      if (!sound) return;
+      
+      // Get the position information
+      const rect = activeSlider.getBoundingClientRect();
+      const touchY = e.touches[0].clientY - rect.top;
+      const height = rect.height;
+      
+      // Calculate the new slider value
+      const value = Math.max(0, Math.min(1, 1 - (touchY / height)));
+      
+      // Direct value update for maximum visual responsiveness during dragging
+      setSounds(prev => ({
+        ...prev,
+        [sound]: {
+          ...prev[sound],
+          targetValue: value,
+          value: value, // Directly set value for immediate visual update
+          isActive: value > 0,
+          showSlider: true
+        }
+      }));
+      
+      // Process audio with minimal delay
+      if (sliderThrottleTimeRef.current[sound]) {
+        clearTimeout(sliderThrottleTimeRef.current[sound]);
+      }
+      sliderThrottleTimeRef.current[sound] = setTimeout(() => {
+        playSoundWithThrottle(sound, value);
+      }, 5);
+      
+      // Prevent default scrolling - this works outside React's event system
+      if (activeSlider) {
+        e.preventDefault();
+      }
+    };
+    
+    // Use the non-passive option for the global handler
+    document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchmove', handleGlobalTouchMove);
+    };
+  }, [setSounds, playSoundWithThrottle]);
+
   return (
     <div 
-      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50"
-      onTouchMove={(e) => {
-        // Prevent scrolling on mobile devices
-        e.preventDefault();
-      }}
+      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50" 
     >
       <div className="grid grid-cols-5 md:grid-cols-10 gap-2 md:gap-4">
         {Object.entries(sounds).map(([sound, state]) => {
@@ -447,28 +573,35 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
               <div 
                 className={`relative h-32 md:h-36 w-16 flex items-center justify-center transition-all duration-300 ${
                 state.showSlider ? 'opacity-100' : 'opacity-0 md:opacity-100'
-                } hover:scale-105`}
+                } hover:scale-105 prevent-scroll`}
                 data-sound={sound}
-                style={{ cursor: 'pointer' }}
-                // Touch handlers for mobile/iOS
+                style={{ cursor: 'pointer', touchAction: 'none', position: 'relative' }}
+                // Modified touch handler approach to work around passive event issues
                 onTouchStart={(e) => {
+                  // Mark this slider as active for our global handler
+                  e.currentTarget.setAttribute('data-active', 'true');
+                  
                   // Immediately calculate the value based on touch position
                   const rect = e.currentTarget.getBoundingClientRect();
                   const touchY = e.touches[0].clientY - rect.top;
                   const height = rect.height;
                   const value = Math.max(0, Math.min(1, 1 - (touchY / height)));
                   
-                  // Set state directly for immediate feedback
+                  // For maximum responsiveness when starting a touch,
+                  // bypass the animation system and directly set both value and targetValue
                   setSounds(prev => ({
                     ...prev,
                     [sound as SoundType]: {
                       ...prev[sound as SoundType],
                       targetValue: value,
-                      value: value, // Direct update for immediate response
+                      value: value, // Direct update for immediate visual response
                       isActive: value > 0,
                       showSlider: true
                     }
                   }));
+                  
+                  // Add a visual active class for removing transitions during active dragging
+                  e.currentTarget.classList.add('active-slider');
                   
                   // Process audio with minimal delay
                   if (sliderThrottleTimeRef.current[sound as SoundType]) {
@@ -477,38 +610,12 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   sliderThrottleTimeRef.current[sound as SoundType] = setTimeout(() => {
                     playSoundWithThrottle(sound as SoundType, value);
                   }, 5);
-                  
-                  e.stopPropagation();
                 }}
-                onTouchMove={(e) => {
-                  // Immediately calculate the value based on touch position
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const touchY = e.touches[0].clientY - rect.top;
-                  const height = rect.height;
-                  const value = Math.max(0, Math.min(1, 1 - (touchY / height)));
-                  
-                  // Set state directly for immediate feedback  
-                  setSounds(prev => ({
-                    ...prev,
-                    [sound as SoundType]: {
-                      ...prev[sound as SoundType],
-                      targetValue: value,
-                      value: value, // Direct update for immediate response
-                      isActive: value > 0,
-                      showSlider: true
-                    }
-                  }));
-                  
-                  // Process audio with minimal delay
-                  if (sliderThrottleTimeRef.current[sound as SoundType]) {
-                    clearTimeout(sliderThrottleTimeRef.current[sound as SoundType]);
-                  }
-                  sliderThrottleTimeRef.current[sound as SoundType] = setTimeout(() => {
-                    playSoundWithThrottle(sound as SoundType, value);
-                  }, 5);
-                  
-                  e.preventDefault(); // Prevent scrolling while dragging
-                  e.stopPropagation();
+                onTouchEnd={(e) => {
+                  // Remove active marker
+                  e.currentTarget.removeAttribute('data-active');
+                  // Remove the active class when touch ends
+                  e.currentTarget.classList.remove('active-slider');
                 }}
                 // Mouse handlers for desktop browsers
                 onMouseDown={(e) => {
@@ -522,17 +629,20 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   const height = rect.height;
                   const value = Math.max(0, Math.min(1, 1 - (mouseY / height)));
                   
-                  // Set state directly for immediate feedback
+                  // For direct responsiveness, bypass animation system during active dragging
                   setSounds(prev => ({
                     ...prev,
                     [sound as SoundType]: {
                       ...prev[sound as SoundType],
                       targetValue: value,
-                      value: value,
+                      value: value, // Direct value update for immediate feedback
                       isActive: value > 0,
                       showSlider: true
                     }
                   }));
+                  
+                  // Add visual active class for removing transitions during dragging
+                  e.currentTarget.classList.add('active-slider');
                   
                   // Process audio
                   if (sliderThrottleTimeRef.current[sound as SoundType]) {
@@ -555,14 +665,17 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   
                   {/* Active track */}
                   <div 
-                    className={`absolute bottom-0 w-2 md:w-2.5 mx-auto rounded-full transition-all ${
+                    className={`absolute bottom-0 w-2 md:w-2.5 mx-auto rounded-full transition-all will-change-transform ${
                       isActive 
                         ? hasAudio 
                           ? 'bg-blue-500/30' 
                           : 'bg-purple-500/50'
                         : 'bg-gray-500/30'
                     }`}
-                  style={{ height: `${state.value * 100}%` }}
+                  style={{ 
+                    height: `${state.value * 100}%`, 
+                    transform: 'translateZ(0)'
+                  }}
                   />
                   
                   {/* Tick marks for the scale - positioned on both sides */}
@@ -577,12 +690,12 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
 
                   {/* Slider tip/handle */}
                   <div 
-                    className="absolute transition-all bg-gray-500/95 pointer-events-none hover:scale-110"
+                    className="absolute transition-all bg-gray-500/95 pointer-events-none hover:scale-110 will-change-transform"
                     style={{
                       width: '32px',
                       height: '18px',
                       bottom: `calc(${Math.max(0.05, state.value) * 100}%)`,
-                      transform: 'translateY(50%)',
+                      transform: 'translateY(50%) translateZ(0)',
                       left: 'calc(50% - 16px)',
                       boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                     }}

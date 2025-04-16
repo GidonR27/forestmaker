@@ -66,3 +66,39 @@ input[type="range"][orient="vertical"] {
   height: 175px;
   padding: 0 5px;
 }
+
+/* Prevent scrolling on touch slider elements */
+.prevent-scroll {
+  touch-action: none;
+  -webkit-overflow-scrolling: none;
+  overscroll-behavior: none;
+  overflow: hidden;
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Chrome/Opera/Firefox */
+}
+
+/* Apply touch-action to the sound sliders */
+[data-sound] {
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-drag: none;
+  /* Fix for Safari/iOS */
+  position: relative;
+  z-index: 10;
+}
+
+/* Optimize slider animations */
+[data-sound] .transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition-duration: 50ms;
+}
+
+/* When a slider is actively being interacted with, make transitions instant */
+[data-sound]:active .transition-all {
+  transition-duration: 0ms !important;
+}
