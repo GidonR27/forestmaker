@@ -65,6 +65,11 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
   const isMouseDownRef = useRef<Record<SoundType, boolean>>({} as Record<SoundType, boolean>);
   const currentSoundRef = useRef<SoundType | null>(null);
 
+  // Add state to track which sliders are currently being interacted with
+  const [activeSliders, setActiveSliders] = useState<Record<SoundType, boolean>>({} as Record<SoundType, boolean>);
+  // Ref to store timeout IDs for fade-out delays
+  const fadeTimeoutRef = useRef<Record<SoundType, NodeJS.Timeout>>({} as Record<SoundType, NodeJS.Timeout>);
+
   // Initialize mouse down ref
   useEffect(() => {
     Object.keys(soundIcons).forEach((sound) => {
@@ -175,6 +180,33 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     }
   }, [hasAudioAsset, sounds]);
 
+  // Helper function to set a slider as active and handle the fade-in/out
+  const setSliderActive = useCallback((sound: SoundType, isActive: boolean) => {
+    // If already in the desired state, don't do anything
+    if (activeSliders[sound] === isActive) return;
+    
+    // Clear any existing timeout
+    if (fadeTimeoutRef.current[sound]) {
+      clearTimeout(fadeTimeoutRef.current[sound]);
+    }
+    
+    if (isActive) {
+      // Immediate activation
+      setActiveSliders(prev => ({
+        ...prev,
+        [sound]: true
+      }));
+    } else {
+      // Delayed deactivation (3 seconds)
+      fadeTimeoutRef.current[sound] = setTimeout(() => {
+        setActiveSliders(prev => ({
+          ...prev,
+          [sound]: false
+        }));
+      }, 3000); // 3 second fade-out delay
+    }
+  }, [activeSliders]);
+
   // Mouse move handler (defined at component level)
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!currentSoundRef.current || !isMouseDownRef.current[currentSoundRef.current]) return;
@@ -184,6 +216,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     // Find the slider element
     const sliderElement = document.querySelector(`[data-sound="${sound}"]`);
     if (!sliderElement) return;
+    
+    // Keep the slider active
+    setSliderActive(sound, true);
     
     const rect = sliderElement.getBoundingClientRect();
     const mouseY = e.clientY - rect.top;
@@ -211,7 +246,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     }, 5);
     
     e.preventDefault();
-  }, [setSounds, playSoundWithThrottle]);
+  }, [setSounds, playSoundWithThrottle, setSliderActive]);
   
   // Mouse up handler (defined at component level)
   const handleMouseUp = useCallback(() => {
@@ -222,12 +257,15 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
         sliderElement.classList.remove('active-slider');
       }
       
+      // Set the slider as inactive (with delay)
+      setSliderActive(currentSoundRef.current, false);
+      
       isMouseDownRef.current[currentSoundRef.current] = false;
     }
     currentSoundRef.current = null;
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
+  }, [handleMouseMove, setSliderActive]);
 
   // Smooth value updates - make it almost immediate for better responsiveness
   useEffect(() => {
@@ -516,6 +554,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
       const sound = activeSlider.getAttribute('data-sound') as SoundType;
       if (!sound) return;
       
+      // Keep the slider active during touch
+      setSliderActive(sound, true);
+      
       // Get the position information
       const rect = activeSlider.getBoundingClientRect();
       const touchY = e.touches[0].clientY - rect.top;
@@ -556,7 +597,7 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     return () => {
       document.removeEventListener('touchmove', handleGlobalTouchMove);
     };
-  }, [setSounds, playSoundWithThrottle]);
+  }, [setSounds, playSoundWithThrottle, setSliderActive]);
 
   return (
     <div 
@@ -580,6 +621,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                 onTouchStart={(e) => {
                   // Mark this slider as active for our global handler
                   e.currentTarget.setAttribute('data-active', 'true');
+                  
+                  // Set the slider as active (show tick marks)
+                  setSliderActive(sound as SoundType, true);
                   
                   // Immediately calculate the value based on touch position
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -616,12 +660,17 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   e.currentTarget.removeAttribute('data-active');
                   // Remove the active class when touch ends
                   e.currentTarget.classList.remove('active-slider');
+                  // Start fade-out timer for tick marks
+                  setSliderActive(sound as SoundType, false);
                 }}
                 // Mouse handlers for desktop browsers
                 onMouseDown={(e) => {
                   // Set the current sound and mouse down flag
                   currentSoundRef.current = sound as SoundType;
                   isMouseDownRef.current[sound as SoundType] = true;
+                  
+                  // Set the slider as active (show tick marks)
+                  setSliderActive(sound as SoundType, true);
                   
                   // Calculate value based on mouse position
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -679,13 +728,74 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   />
                   
                   {/* Tick marks for the scale - positioned on both sides */}
-                  <div className="absolute inset-y-0 w-full flex flex-col justify-between py-4 pointer-events-none">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="w-full flex justify-between items-center px-3">
-                        <div className="w-2 h-0.5 bg-gray-400/40"></div>
-                        <div className="w-2 h-0.5 bg-gray-400/40"></div>
-                      </div>
-                    ))}
+                  <div 
+                    className={`absolute inset-y-0 w-full flex flex-col justify-between py-4 pointer-events-none tick-marks-container ${
+                      activeSliders[sound as SoundType] ? 'fade-in' : 'fade-out'
+                    }`}
+                  >
+                    {[...Array(6)].map((_, i) => {
+                      // Calculate if this tick mark is below or above the current value
+                      // 0 = top, 5 = bottom 
+                      const tickPosition = i / 5; // Normalize to 0-1 range
+                      const isAboveValue = tickPosition <= 1 - state.value;
+                      
+                      // For sidelines at the slider value position (or very close), create a gradient
+                      const isTransition = Math.abs(tickPosition - (1 - state.value)) < 0.1;
+                      
+                      // Colors based on state
+                      const inactiveColor = 'rgb(156 163 175 / 0.4)'; // gray-400/40
+                      
+                      // Rainbow colors for active part
+                      // Map the position to a color in the rainbow spectrum
+                      // Position 5 (bottom) = red, Position 0 (top) = violet
+                      const getRainbowColor = (pos: number) => {
+                        // Create a rainbow gradient (red, orange, yellow, green, blue, indigo, violet)
+                        const colors = [
+                          'rgb(255, 50, 50, 0.9)',   // bright red (bottom)
+                          'rgb(255, 165, 0, 0.9)',   // orange
+                          'rgb(255, 255, 0, 0.9)',   // yellow
+                          'rgb(0, 255, 50, 0.9)',    // bright green
+                          'rgb(0, 170, 255, 0.9)',   // bright blue
+                          'rgb(130, 0, 255, 0.9)'    // bright violet (top)
+                        ];
+                        
+                        // Calculate which segment of the rainbow this position falls into
+                        const segment = Math.min(Math.floor(pos * (colors.length - 1)), colors.length - 2);
+                        
+                        // Return the appropriate color based on position
+                        return colors[colors.length - 1 - segment];
+                      };
+                      
+                      // Get active color based on position in the slider
+                      const activeColor = hasAudio 
+                        ? getRainbowColor(tickPosition)  // Rainbow gradient for active part
+                        : 'rgb(168, 85, 247, 0.9)';      // Keep purple for non-audio
+                        
+                      // Apply appropriate styles based on position
+                      let tickStyles = {};
+                      
+                      if (isTransition) {
+                        // For marks near the transition point, use a gradient
+                        tickStyles = {
+                          background: `linear-gradient(to bottom, ${inactiveColor} 0%, ${activeColor} 100%)`
+                        };
+                      } else {
+                        // Solid color based on position
+                        tickStyles = {
+                          backgroundColor: isAboveValue ? inactiveColor : activeColor,
+                          // Make bottom ticks slightly thicker for better visibility
+                          height: isAboveValue ? '2px' : `${2 + (tickPosition * 1)}px`,
+                          opacity: isAboveValue ? 0.4 : 1
+                        };
+                      }
+                      
+                      return (
+                        <div key={i} className="w-full flex justify-between items-center px-3">
+                          <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
+                          <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Slider tip/handle */}
