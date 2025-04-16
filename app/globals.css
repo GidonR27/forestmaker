@@ -72,7 +72,7 @@ input[type="range"][orient="vertical"] {
   touch-action: none;
   -webkit-overflow-scrolling: none;
   overscroll-behavior: none;
-  overflow: hidden;
+  overflow: visible;
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
   -khtml-user-select: none; /* Konqueror HTML */
@@ -101,4 +101,37 @@ input[type="range"][orient="vertical"] {
 /* When a slider is actively being interacted with, make transitions instant */
 [data-sound]:active .transition-all {
   transition-duration: 0ms !important;
+}
+
+/* Sideline tick marks animations */
+.tick-marks-container {
+  transition-property: opacity;
+  transition-duration: 0.5s;
+  opacity: 0;
+}
+
+.tick-marks-container.fade-in {
+  opacity: 1;
+  transition-timing-function: ease-in;
+  transition-duration: 0.5s;
+}
+
+.tick-marks-container.fade-out {
+  opacity: 0;
+  transition-timing-function: ease-out;
+  transition-duration: 3s;
+}
+
+/* Rainbow effects for slider marks */
+.rainbow-tick {
+  position: relative;
+  transition: background-color 0.2s ease;
+  border-radius: 1px;
+}
+
+/* Gradient color for tick marks */
+.tick-mark-gradient {
+  position: relative;
+  background-color: transparent;
+  overflow: hidden;
 }
