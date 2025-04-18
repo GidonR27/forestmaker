@@ -629,10 +629,10 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
             const hasAudio = hasAudioAsset(sound);
             return (
               <div key={sound} className="flex flex-col items-center gap-4 md:gap-6">
-              {/* Slider container - hidden on mobile until interaction */}
+              {/* Slider container - hidden on all devices until interaction */}
               <div 
                 className={`relative h-32 md:h-36 w-16 flex items-center justify-center transition-all duration-300 ${
-                state.showSlider ? 'opacity-100' : 'opacity-0 md:opacity-100'
+                state.showSlider ? 'opacity-100' : 'opacity-0'
                 } hover:scale-105 prevent-scroll`}
                 data-sound={sound}
                 style={{ cursor: 'pointer', touchAction: 'none', position: 'relative' }}
@@ -729,16 +729,16 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                 }}
               >
                   {/* Slider track background - with extended hitbox */}
-                  <div className="absolute inset-0 w-2 md:w-2.5 mx-auto rounded-full bg-gray-700/30 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
+                  <div className="absolute inset-0 w-2 md:w-2.5 mx-auto rounded-full bg-gray-700/40 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
                   
                   {/* Active track */}
                   <div 
                     className={`absolute bottom-0 w-2 md:w-2.5 mx-auto rounded-full transition-all will-change-transform ${
                       isActive 
                         ? hasAudio 
-                          ? 'bg-blue-500/30' 
+                          ? 'bg-blue-500/40' 
                           : 'bg-purple-500/50'
-                        : 'bg-gray-500/30'
+                        : 'bg-gray-500/40'
                     }`}
                   style={{ 
                     height: `${state.value * 100}%`, 
