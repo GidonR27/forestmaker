@@ -21,6 +21,11 @@ type LocalAudioContextState = 'suspended' | 'running' | 'closed';
 // Extended AudioContext state type to include iOS-specific 'interrupted' state
 type ExtendedAudioContextState = LocalAudioContextState | 'interrupted';
 
+// Sound types that should have random delays between loops
+const DELAYED_LOOP_SOUND_TYPES = ['birds', 'thunder', 'insects', 'mammals', 'spiritual', 'ambient'];
+// Sound types that should have fade out before loop ends
+const FADE_OUT_SOUND_TYPES = ['birds', 'thunder', 'insects', 'mammals', 'spiritual', 'ambient'];
+
 export class AudioManager {
   private static instance: AudioManager;
   private _audioContext: AudioContext | null = null;
@@ -34,6 +39,8 @@ export class AudioManager {
   private isIOS: boolean = false;
   private wasContextInterrupted: boolean = false;
   private _mainPageMasterGain: GainNode | null = null;
+  private loopTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private soundTypeForAsset: Map<string, string> = new Map();
   
   // PiP connection function (will be set by PiPMiniPlayer)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -86,6 +93,86 @@ export class AudioManager {
     }
   }
   
+  // New method to set up delayed loops with fade out
+  private setupDelayedLoop(
+    soundInstanceId: string, 
+    source: AudioBufferSourceNode, 
+    gainNode: GainNode, 
+    buffer: AudioBuffer, 
+    volume: number,
+    useRandomDelay: boolean,
+    useFadeOut: boolean
+  ): void {
+    if (!this._audioContext) return;
+    
+    const audioDuration = buffer.duration;
+    
+    // For fade out, we need to start fading a little before the end
+    const fadeOutDuration = useFadeOut ? Math.min(1.5, audioDuration * 0.1) : 0;
+    
+    // Set up the fade out if needed
+    if (useFadeOut && fadeOutDuration > 0) {
+      const fadeOutStartTime = this._audioContext.currentTime + audioDuration - fadeOutDuration;
+      
+      // Schedule the gain reduction
+      gainNode.gain.setValueAtTime(volume, fadeOutStartTime);
+      gainNode.gain.linearRampToValueAtTime(0, fadeOutStartTime + fadeOutDuration);
+      
+      console.log(`[Audio Debug] Scheduled fade out for ${soundInstanceId} at ${fadeOutStartTime.toFixed(2)}s for ${fadeOutDuration.toFixed(2)}s`);
+    }
+    
+    // Handle the end of the sound and potential looping
+    source.onended = () => {
+      console.log(`[Audio Debug] Sound ended: ${soundInstanceId}`);
+      
+      // Clean up the current instance
+      this.activeSources.delete(soundInstanceId);
+      this.activeGains.delete(soundInstanceId);
+      
+      // Check if we're still initialized before creating a new instance
+      if (!this.initialized || !this._audioContext) {
+        console.log(`[Audio Debug] AudioManager not initialized, not looping ${soundInstanceId}`);
+        return;
+      }
+      
+      // For sounds with random delay, add a delay before starting the next loop
+      if (useRandomDelay) {
+        // Random delay between 5-27 seconds
+        const randomDelay = Math.random() * 22 + 5; // 5-27 seconds
+        console.log(`[Audio Debug] Adding random delay of ${randomDelay.toFixed(2)}s before next loop of ${soundInstanceId}`);
+        
+        // Clean up any existing timeout for this sound
+        if (this.loopTimeouts.has(soundInstanceId)) {
+          clearTimeout(this.loopTimeouts.get(soundInstanceId)!);
+        }
+        
+        // Create a new timeout for the delayed loop
+        const timeout = setTimeout(() => {
+          // Get the original asset ID (remove any recovery suffix)
+          const baseId = soundInstanceId.split('-recovery-')[0];
+          
+          // Play the sound again after the delay
+          this.playSound({id: baseId, url: ''}, volume).catch(err => {
+            console.error(`[Audio Debug] Failed to restart sound after delay: ${err}`);
+          });
+          
+          // Remove the timeout reference
+          this.loopTimeouts.delete(soundInstanceId);
+        }, randomDelay * 1000);
+        
+        // Store the timeout reference for potential cleanup
+        this.loopTimeouts.set(soundInstanceId, timeout);
+      } else {
+        // For sounds without random delay but with fade out, 
+        // immediately start the next loop for seamless transition
+        const baseId = soundInstanceId.split('-recovery-')[0];
+        this.playSound({id: baseId, url: ''}, volume).catch(err => {
+          console.error(`[Audio Debug] Failed to restart sound: ${err}`);
+        });
+      }
+    };
+  }
+
   // New method to fully clean up a sound including any duplicates
   private cleanupSound(assetId: string): void {
     // Get all nodes with this ID or that start with this ID (could have recovery duplicates)
@@ -115,6 +202,12 @@ export class AudioManager {
           // Disconnect from all destinations
           gain.disconnect();
           this.activeGains.delete(id);
+        }
+        
+        // Clear any pending loop timeouts
+        if (this.loopTimeouts.has(id)) {
+          clearTimeout(this.loopTimeouts.get(id)!);
+          this.loopTimeouts.delete(id);
         }
       } catch (error) {
         console.error(`[Audio Debug] Error cleaning up sound ${id}:`, error);
@@ -167,24 +260,35 @@ export class AudioManager {
       const gainNode = this._audioContext!.createGain();
 
       source.buffer = buffer;
-      source.loop = true;
       
-      // Log audio duration - useful for debugging with longer files
-      const audioDuration = buffer.duration;
-      console.log(`[Audio Debug] ${soundInstanceId} duration: ${audioDuration.toFixed(2)} seconds`);
+      // Extract sound type from asset ID (e.g., 'birds-soft' -> 'birds')
+      const soundType = asset.id.split('-')[0];
+      this.soundTypeForAsset.set(soundInstanceId, soundType);
       
-      // Implement crossfade for longer files to prevent clicking at loop boundaries
-      // Note: This is especially important for the new 14-second ambient files
-      if (audioDuration >= 10) { // Only apply to longer files (10+ seconds)
-        // Set loop start/end points slightly inward if buffer is long enough
-        // This helps prevent potential clicks at loop points
-        const loopStart = Math.min(0.02, audioDuration * 0.005); // Small offset (max 20ms)
-        const loopEnd = Math.max(audioDuration - 0.02, audioDuration * 0.995);
+      // Determine if this sound should have special looping behavior
+      const shouldHaveRandomDelay = DELAYED_LOOP_SOUND_TYPES.includes(soundType);
+      const shouldHaveFadeOut = FADE_OUT_SOUND_TYPES.includes(soundType);
+      
+      // For non-delayed sounds, use normal looping
+      if (!shouldHaveRandomDelay) {
+        source.loop = true;
         
-        if (audioDuration > 0.5) { // Only set if file has reasonable length
-          source.loopStart = loopStart;
-          source.loopEnd = loopEnd;
-          console.log(`[Audio Debug] Set loop points for ${soundInstanceId}: ${loopStart.toFixed(3)}s to ${loopEnd.toFixed(3)}s`);
+        // Log audio duration - useful for debugging with longer files
+        const audioDuration = buffer.duration;
+        console.log(`[Audio Debug] ${soundInstanceId} duration: ${audioDuration.toFixed(2)} seconds`);
+        
+        // Implement crossfade for longer files to prevent clicking at loop boundaries
+        if (audioDuration >= 10) { // Only apply to longer files (10+ seconds)
+          // Set loop start/end points slightly inward if buffer is long enough
+          // This helps prevent potential clicks at loop points
+          const loopStart = Math.min(0.02, audioDuration * 0.005); // Small offset (max 20ms)
+          const loopEnd = Math.max(audioDuration - 0.02, audioDuration * 0.995);
+          
+          if (audioDuration > 0.5) { // Only set if file has reasonable length
+            source.loopStart = loopStart;
+            source.loopEnd = loopEnd;
+            console.log(`[Audio Debug] Set loop points for ${soundInstanceId}: ${loopStart.toFixed(3)}s to ${loopEnd.toFixed(3)}s`);
+          }
         }
       }
       
@@ -198,7 +302,7 @@ export class AudioManager {
         console.log(`[Audio Debug] Routing ${soundInstanceId} through muted main page output`);
         gainNode.connect(this._mainPageMasterGain);
       } else {
-        // Otherwise connect directly to the destination
+        // Normal routing to main output
         gainNode.connect(this._audioContext!.destination);
       }
       
@@ -207,30 +311,43 @@ export class AudioManager {
         console.log(`[Audio Debug] Connecting ${soundInstanceId} to PiP output`);
         this.connectToPiP(gainNode); // Send to PiP
       }
-
-      console.log(`[Audio Debug] Starting playback of ${soundInstanceId}`);
-      source.start(0);
+      
+      // Store references for later cleanup
       this.activeSources.set(soundInstanceId, source);
       this.activeGains.set(soundInstanceId, gainNode);
       
-      // Add ended event listener 
-      source.addEventListener('ended', () => {
-        console.log(`[Audio Debug] Source ended naturally: ${soundInstanceId}`);
-        // Cleanup this specific instance
-        this.activeSources.delete(soundInstanceId);
-        this.activeGains.delete(soundInstanceId);
-        
-        // For iOS, immediately recreate if source ends unexpectedly during interruption
-        if (this.wasContextInterrupted && this.isIOS && soundInstanceId === asset.id) {
-          console.log(`[Audio Debug] Auto-restarting ${asset.id} after iOS interruption`);
-          // Restart with slight delay
-          setTimeout(() => {
-            this.playSound(asset, volume);
-          }, 100);
-        }
-      });
+      // For sounds with special looping logic, set up the delayed loop
+      if (shouldHaveRandomDelay || shouldHaveFadeOut) {
+        this.setupDelayedLoop(soundInstanceId, source, gainNode, buffer, volume, shouldHaveRandomDelay, shouldHaveFadeOut);
+      }
+      
+      // Start the sound
+      source.start();
+      console.log(`[Audio Debug] Started playing ${soundInstanceId}`);
+      
+      // Add ended event listener for non-delayed sounds to handle iOS interruptions
+      if (!shouldHaveRandomDelay && !shouldHaveFadeOut) {
+        source.addEventListener('ended', () => {
+          console.log(`[Audio Debug] Source ended naturally: ${soundInstanceId}`);
+          // Cleanup this specific instance
+          this.activeSources.delete(soundInstanceId);
+          this.activeGains.delete(soundInstanceId);
+          
+          // For iOS, immediately recreate if source ends unexpectedly during interruption
+          if (this.wasContextInterrupted && this.isIOS && soundInstanceId === asset.id) {
+            console.log(`[Audio Debug] Auto-restarting ${asset.id} after iOS interruption`);
+            // Restart with slight delay
+            setTimeout(() => {
+              this.playSound(asset, volume);
+            }, 100);
+          }
+        });
+      }
+      
+      return Promise.resolve();
     } catch (error) {
-      console.error(`[Audio Debug] Failed to play sound ${asset.id}:`, error);
+      console.error(`[Audio Debug] Error playing sound ${asset.id}:`, error);
+      return Promise.reject(error);
     }
   }
 
@@ -836,161 +953,172 @@ export class AudioManager {
   }
 
   cleanup(): void {
-    console.log('[Audio Debug] Cleaning up AudioManager');
+    // Stop all sounds
     this.stopAllSounds();
-    this.audioBuffers.clear();
-    this.activeSources.clear();
-    this.activeGains.clear();
     
-    // Clean up audio context monitoring
+    // Clear all loop timeouts
+    this.loopTimeouts.forEach((timeout) => {
+      clearTimeout(timeout);
+    });
+    this.loopTimeouts.clear();
+    
+    // Clear all audio buffers
+    this.audioBuffers.clear();
+    this.soundTypeForAsset.clear();
+    
+    // Clear the PiP connection
+    this.connectToPiP = undefined;
+    
+    // Close audio context
+    if (this._audioContext) {
+      if (this._audioContext.state !== 'closed') {
+        this._audioContext.close();
+      }
+      this._audioContext = null;
+    }
+    
+    // Clear interval
     if (this.audioContextStateInterval) {
       clearInterval(this.audioContextStateInterval);
       this.audioContextStateInterval = null;
     }
     
-    // Clean up event listeners
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-      
-      if (this.isIOS) {
-        window.removeEventListener('focus', this.handleIOSForeground.bind(this));
-        window.removeEventListener('pageshow', this.handleIOSForeground.bind(this));
-      }
-    }
-    
-    if (this._audioContext) {
-      console.log('[Audio Debug] Closing audio context');
-      this._audioContext.close();
-      this._audioContext = null;
-    }
-    
+    // Reset flags
     this.initialized = false;
-    this.connectToPiP = undefined;
-    console.log('[Audio Debug] AudioManager cleanup complete');
+    this.recoveryAttempts = 0;
+    
+    console.log('[Audio Debug] Audio manager cleanup complete');
   }
 
   // Clean up PiP connections when exiting PiP mode
   clearPiPConnections(): void {
     console.log('[Audio Debug] Clearing PiP connections');
     
-    // Remove the connect method
+    // First disconnect any active gain nodes
+    this.activeGains.forEach((gainNode, id) => {
+      try {
+        // Force immediate muting of all sounds first (to prevent stuttering)
+        gainNode.gain.cancelScheduledValues(0);
+        gainNode.gain.setValueAtTime(0, 0);
+        console.log(`[Audio Debug] Muted ${id} for PiP disconnect`);
+        
+        // Attempt to disconnect from all potential destinations
+        try {
+          gainNode.disconnect();
+        } catch (e) {
+          console.error('[Audio Debug] Error disconnecting gain node:', e);
+        }
+      } catch (err) {
+        console.error('[Audio Debug] Error muting gain node:', err);
+      }
+    });
+    
+    // Clear the connection function
     this.connectToPiP = undefined;
     
-    // Track which sounds we need to restore
-    const activeSoundIds = new Set<string>();
-    const soundVolumes = new Map<string, number>();
-    
-    // Get all currently active sounds
-    this.activeSources.forEach((_, id) => {
-      const baseId = id.includes('-recovery-') ? id.split('-recovery-')[0] : id;
-      activeSoundIds.add(baseId);
-      
-      // Save the volume if we haven't seen this base ID yet
-      if (!soundVolumes.has(baseId)) {
-        const gain = this.activeGains.get(id);
-        if (gain) {
-          soundVolumes.set(baseId, gain.gain.value);
+    // Reconnect to main audio output (if we have active sounds)
+    if (this._audioContext) {
+      this.activeGains.forEach((gainNode, id) => {
+        try {
+          gainNode.connect(this._audioContext!.destination);
+          console.log(`[Audio Debug] Reconnected ${id} to main destination`);
+        } catch (e) {
+          console.error(`[Audio Debug] Error reconnecting ${id}:`, e);
         }
-      }
-    });
-    
-    // Remove main page mute
-    if (this._mainPageMasterGain && this._audioContext) {
-      console.log('[Audio Debug] Removing main page mute and restoring direct audio output');
-      
-      try {
-        // First, ensure audio context is running
-        if (this._audioContext.state !== 'running') {
-          console.log('[Audio Debug] Resuming audio context before restoring main page audio');
-          this._audioContext.resume().catch(err => {
-            console.error('[Audio Debug] Error resuming context during PiP exit:', err);
-          });
-        }
-        
-        // Disconnect the master gain node
-        this._mainPageMasterGain.disconnect();
-        this._mainPageMasterGain = null;
-        
-        // IMPORTANT: Reconnect all gain nodes directly to the destination to unmute
-        console.log('[Audio Debug] Reconnecting all audio nodes directly to main output');
-        this.activeGains.forEach((gainNode, id) => {
-          try {
-            // First disconnect from any other destinations (might be connected to PiP)
-            gainNode.disconnect();
-            
-            // Connect directly to context destination to restore normal audio
-            gainNode.connect(this._audioContext!.destination);
-            console.log(`[Audio Debug] Restored main page audio for: ${id}`);
-          } catch (error) {
-            console.error(`[Audio Debug] Error reconnecting node to main output: ${id}`, error);
-          }
-        });
-      } catch (e) {
-        console.error('[Audio Debug] Error removing main page mute:', e);
-      }
+      });
     }
     
-    // Ensure there are no duplicate sounds by stopping all and restarting the necessary ones
-    console.log(`[Audio Debug] Found ${activeSoundIds.size} unique sounds to restore`);
+    // Clear all delayed timeouts to prevent unexpected sounds after PiP ends
+    this.clearAllLoopTimeouts();
     
-    // Stop all current sounds to ensure clean state
-    this.stopAllSounds();
+    console.log('[Audio Debug] PiP connections cleared');
+  }
+  
+  // Helper method to clear all loop timeouts
+  private clearAllLoopTimeouts(): void {
+    console.log(`[Audio Debug] Clearing all loop timeouts (count: ${this.loopTimeouts.size})`);
     
-    // Restart each sound with proper volume to ensure clean audio routing
-    activeSoundIds.forEach(baseId => {
-      const asset = { id: baseId, url: '' };
-      const volume = soundVolumes.get(baseId) || 0.3; // Use saved volume or default
-      
-      console.log(`[Audio Debug] Restarting ${baseId} after PiP exit with volume ${volume}`);
-      this.playSound(asset, volume);
+    this.loopTimeouts.forEach((timeout, id) => {
+      clearTimeout(timeout);
+      console.log(`[Audio Debug] Cleared loop timeout for ${id}`);
     });
     
-    // Final check to ensure audio is properly resumed
-    if (this._audioContext && this._audioContext.state !== 'running') {
-      console.log('[Audio Debug] Final audio context resume after PiP exit');
-      this._audioContext.resume().catch(err => {
-        console.error('[Audio Debug] Final resume error:', err);
+    this.loopTimeouts.clear();
+  }
+  
+  // Helper method to clear loop timeouts for a specific asset
+  private clearLoopTimeoutsForAsset(assetId: string): void {
+    // Find all timeouts that match or start with assetId
+    const timeoutsToRemove: string[] = [];
+    
+    this.loopTimeouts.forEach((_, id) => {
+      if (id === assetId || id.startsWith(`${assetId}-recovery`)) {
+        timeoutsToRemove.push(id);
+      }
+    });
+    
+    if (timeoutsToRemove.length > 0) {
+      console.log(`[Audio Debug] Clearing ${timeoutsToRemove.length} loop timeouts for ${assetId}`);
+      
+      timeoutsToRemove.forEach(id => {
+        if (this.loopTimeouts.has(id)) {
+          clearTimeout(this.loopTimeouts.get(id)!);
+          this.loopTimeouts.delete(id);
+        }
       });
     }
   }
 
   // Ensure all instances of the given sound assets are completely stopped
   public ensureAllStopped(assetIds: string[]): void {
-    console.log(`[Audio Debug] Ensuring all instances of ${assetIds.join(', ')} are completely stopped`);
+    console.log(`[Audio Debug] Ensuring all stopped: ${assetIds.join(', ')}`);
     
-    // First pass: try normal cleanup for each asset 
-    assetIds.forEach(baseId => {
-      this.cleanupSound(baseId);
+    if (!assetIds.length) return;
+    
+    // Stop each sound in the list (with multiple attempts)
+    assetIds.forEach(assetId => {
+      // First try to stop via normal method
+      this.stopSound(assetId);
+      
+      // Also clear any loop timeouts for this asset
+      this.clearLoopTimeoutsForAsset(assetId);
+      
+      // Make sure all variants (recovery instances) are also stopped
+      this.activeSources.forEach((_, id) => {
+        // Check for recovery variants 
+        if (id.startsWith(`${assetId}-recovery`)) {
+          this.stopSound(id);
+        }
+      });
+      
+      // For iOS PiP issues, also try to disconnect all AudioNodes completely
+      this.activeGains.forEach((gainNode, id) => {
+        if (id === assetId || id.startsWith(`${assetId}-recovery`)) {
+          try {
+            // Force immediate muting of all sounds first
+            gainNode.gain.cancelScheduledValues(0);
+            gainNode.gain.setValueAtTime(0, 0);
+            console.log(`[Audio Debug] Muted sound ${id} immediately`);
+            
+            // Also try to disconnect
+            gainNode.disconnect();
+          } catch (err) {
+            console.error(`[Audio Debug] Error stopping sound ${id}:`, err);
+          }
+        }
+      });
     });
     
-    // Second pass: find any sources that might still be playing with these base IDs
-    // (addresses potential race conditions with async operations)
-    const allSources = Array.from(this.activeSources.keys());
-    
-    allSources.forEach(sourceId => {
-      // Check if this source belongs to any of the asset IDs we want to stop
-      const shouldStop = assetIds.some(assetId => 
-        sourceId === assetId || 
-        sourceId.startsWith(`${assetId}-recovery`) ||
-        sourceId.includes(assetId)
-      );
-      
-      if (shouldStop) {
-        console.log(`[Audio Debug] Force stopping extra instance: ${sourceId}`);
+    // Check for any active sources that somehow escaped and force stop those too
+    this.activeSources.forEach((source, id) => {
+      const baseId = id.includes('-recovery-') ? id.split('-recovery-')[0] : id;
+      if (assetIds.includes(baseId)) {
         try {
-          const source = this.activeSources.get(sourceId);
-          if (source) {
-            source.stop();
-            this.activeSources.delete(sourceId);
-          }
-          
-          const gain = this.activeGains.get(sourceId);
-          if (gain) {
-            gain.disconnect();
-            this.activeGains.delete(sourceId);
-          }
-        } catch (e) {
-          console.error(`[Audio Debug] Error force stopping: ${sourceId}`, e);
+          console.log(`[Audio Debug] Final fallback: force stopping ${id}`);
+          source.stop();
+          this.activeSources.delete(id);
+        } catch (err) {
+          console.error(`[Audio Debug] Error in fallback stop for ${id}:`, err);
         }
       }
     });
