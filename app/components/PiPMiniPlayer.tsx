@@ -333,6 +333,7 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
     
     // Ensure PiP is marked as inactive
     setIsPiPActive(false);
+    setShowPiPUI(false);
     
     // Thorough audio cleanup - multiple approaches to ensure audio is restored
     if (audioManager) {
@@ -351,12 +352,20 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
         }
       }
       
-      // Final verification steps
+      // Ensure audio is resumed and reconnected in the main page
       if (audioManager.audioContext) {
         // Ensure audio context is running
         audioManager.audioContext.resume().catch(err => {
           console.error('[PiP Debug] Error resuming audio in cleanup:', err);
         });
+        
+        // Force reconnection of all sounds to main output after a short delay
+        setTimeout(() => {
+          if (typeof audioManager.reconnectAllSounds === 'function') {
+            console.log('[PiP Debug] Reconnecting all sounds to main output');
+            audioManager.reconnectAllSounds();
+          }
+        }, 100);
       }
     }
     
@@ -821,6 +830,22 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
               console.log('[PiP Debug] Notifying parent of "Play in background" close');
               onClose();
             }
+            
+            // Additional safeguard to ensure audio resumes in main interface
+            setTimeout(() => {
+              if (audioManager.audioContext) {
+                console.log('[PiP Debug] Additional check to ensure main page audio is restored');
+                audioManager.audioContext.resume()
+                  .then(() => {
+                    if (typeof audioManager.reconnectAllSounds === 'function') {
+                      audioManager.reconnectAllSounds();
+                    }
+                  })
+                  .catch(err => {
+                    console.error('[PiP Debug] Error resuming audio after background playback:', err);
+                  });
+              }
+            }, 500);
           }
         }, 300);
       }
@@ -979,7 +1004,7 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
               // Clean up if video element is gone
               clearInterval(checkInterval);
             }
-          }, 500); // Check more frequently to catch exit faster
+          }, 300); // Check more frequently to catch exit faster
         } else {
           throw new Error('iOS PiP not supported in this browser');
         }
@@ -1188,16 +1213,6 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
             </span>
           )}
         </div>
-        {/* Close button */}
-        <button 
-          className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full p-1"
-          onClick={closeMiniPlayer}
-          aria-label="Close mini player"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-        </button>
       </div>
     </div>
   );

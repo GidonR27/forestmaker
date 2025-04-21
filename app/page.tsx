@@ -359,6 +359,26 @@ export default function Home() {
   const handlePiPClose = () => {
     console.log('PiP mini player closed by user');
     setIsPiPVisible(false);
+    
+    // Additional safeguard to ensure audio is properly restored in the main page
+    import('./utils/audioManager').then(({ audioManager }) => {
+      if (audioManager && audioManager.audioContext) {
+        console.log('Main page: Ensuring audio is resumed after PiP close');
+        
+        // Resume audio context
+        audioManager.audioContext.resume().catch(err => {
+          console.error('Error resuming audio context in main page:', err);
+        });
+        
+        // Extra recovery after a short delay to ensure all state updates have completed
+        setTimeout(() => {
+          console.log('Main page: Running final audio reconnection check');
+          if (typeof audioManager.reconnectAllSounds === 'function') {
+            audioManager.reconnectAllSounds();
+          }
+        }, 300);
+      }
+    });
   };
 
   return (
