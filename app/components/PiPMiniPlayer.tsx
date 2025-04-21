@@ -35,6 +35,7 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
+  const [showPiPUI, setShowPiPUI] = useState<boolean>(false);
   const [isPiPSupported, setIsPiPSupported] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
@@ -1093,6 +1094,37 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
     };
   }, [isPiPActive, isIOS]);
 
+  // Add event listener to detect when PiP mode is activated via native controls
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const handleEnteredPiP = () => {
+      console.log('[PiP Debug] Detected PiP mode from native controls');
+      // Only update UI state, don't touch audio routing
+      setShowPiPUI(true);
+    };
+    
+    const detectPiPChange = () => {
+      if (videoRef.current) {
+        if (videoRef.current.webkitPresentationMode === 'picture-in-picture') {
+          console.log('[PiP Debug] Detected iOS PiP mode from native controls');
+          setShowPiPUI(true);
+        }
+      }
+    };
+    
+    // Standard PiP event
+    videoRef.current.addEventListener('enterpictureinpicture', handleEnteredPiP);
+    
+    // For iOS, we need to check periodically since there's no standard event
+    const intervalId = setInterval(detectPiPChange, 1000);
+    
+    return () => {
+      videoRef.current?.removeEventListener('enterpictureinpicture', handleEnteredPiP);
+      clearInterval(intervalId);
+    };
+  }, [videoRef.current]);
+
   // Don't render if not visible
   if (!isVisible) return null;
 
@@ -1139,19 +1171,22 @@ export default forwardRef<PiPMiniPlayerHandle, PiPMiniPlayerProps>(function PiPM
           )}
         </div>
         <div className="p-2 flex justify-between items-center bg-gray-800">
-          <span className="text-white text-sm">
-            Tap <TbPictureInPicture className="inline-block mx-1" size={16} /> to play in background
-          </span>
-          <div>
-            <IconButton 
-              icon={TbPictureInPicture} 
-              onClick={enterPiPMode} 
-              variant="secondary"
-              size="sm"
-              tooltip={isPiPSupported ? "Open Picture-in-Picture" : "PiP not supported"}
-              disabled={isPiPActive || !isPiPSupported}
-            />
-          </div>
+          {(isPiPActive || showPiPUI) && isIOS ? (
+            <button 
+              onClick={showAirPlayPicker}
+              className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md transition-colors"
+            >
+              <TbCast className="mr-1.5" size={18} />
+              <span className="text-sm">AirPlay</span>
+            </button>
+          ) : (
+            <span className="text-white text-sm flex items-center">
+              Tap <svg className="inline-block mx-1" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'translateY(1px)' }}>
+                <rect x="2" y="4" width="14" height="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <rect x="8" y="11" width="14" height="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="currentColor" />
+              </svg> above
+            </span>
+          )}
         </div>
         {/* Close button */}
         <button 

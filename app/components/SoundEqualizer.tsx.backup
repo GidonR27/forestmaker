@@ -77,25 +77,6 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
     });
   }, []);
 
-  // Function to get a rainbow color based on position
-  const getRainbowColor = (pos: number): string => {
-    // Create a rainbow gradient (red, orange, yellow, green, blue, indigo, violet)
-    const colors = [
-      'rgb(255, 50, 50, 0.9)',   // bright red (bottom)
-      'rgb(255, 165, 0, 0.9)',   // orange
-      'rgb(255, 255, 0, 0.9)',   // yellow
-      'rgb(0, 255, 50, 0.9)',    // bright green
-      'rgb(0, 170, 255, 0.9)',   // bright blue
-      'rgb(130, 0, 255, 0.9)'    // bright violet (top)
-    ];
-    
-    // Calculate which segment of the rainbow this position falls into
-    const segment = Math.min(Math.floor(pos * (colors.length - 1)), colors.length - 2);
-    
-    // Return the appropriate color based on position
-    return colors[colors.length - 1 - segment];
-  };
-
   const hasAudioAsset = (soundType: string): boolean => {
     return soundType in audioAssets;
   };
@@ -620,22 +601,22 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
 
   return (
     <div 
-      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50"
+      className="fixed bottom-0 left-0 right-0 p-4 md:p-6 z-50" 
     >
-      <div className="grid grid-cols-5 md:grid-cols-10 gap-x-2 gap-y-5 md:gap-4">
+      <div className="grid grid-cols-5 md:grid-cols-10 gap-2 md:gap-4">
         {Object.entries(sounds).map(([sound, state]) => {
             const Icon = soundIcons[sound as keyof typeof soundIcons];
           const isActive = state.isActive;
             const hasAudio = hasAudioAsset(sound);
             return (
               <div key={sound} className="flex flex-col items-center gap-4 md:gap-6">
-              {/* Slider container - hidden on all devices until interaction */}
+              {/* Slider container - hidden on mobile until interaction */}
               <div 
-                className={`relative h-32 md:h-36 w-16 flex items-center justify-center py-4 transition-all duration-300 ${
-                state.showSlider ? 'opacity-100' : 'opacity-0'
+                className={`relative h-32 md:h-36 w-16 flex items-center justify-center transition-all duration-300 ${
+                state.showSlider ? 'opacity-100' : 'opacity-0 md:opacity-100'
                 } hover:scale-105 prevent-scroll`}
                 data-sound={sound}
-                style={{ cursor: 'pointer', touchAction: 'none', position: 'relative' }}
+                style={{ cursor: 'pointer', touchAction: 'none', position: 'relative', paddingTop: '10px', paddingBottom: '10px' }}
                 // Modified touch handler approach to work around passive event issues
                 onTouchStart={(e) => {
                   // Mark this slider as active for our global handler
@@ -728,185 +709,9 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
                   e.preventDefault();
                 }}
               >
-                  {/* Invisible touch helper divs at top and bottom */}
-                  <div 
-                    className="absolute top-0 left-0 w-full h-10 -translate-y-full" 
-                    style={{ touchAction: 'none' }}
-                    onClick={(e) => {
-                      // When clicking the top helper, set slider to maximum
-                      e.stopPropagation();
-                      setSounds(prev => ({
-                        ...prev,
-                        [sound as SoundType]: {
-                          ...prev[sound as SoundType],
-                          targetValue: 1,
-                          value: 1,
-                          isActive: true,
-                          showSlider: true
-                        }
-                      }));
-                      playSoundWithThrottle(sound as SoundType, 1);
-                      setSliderActive(sound as SoundType, true);
-                      setTimeout(() => setSliderActive(sound as SoundType, false), 3000);
-                    }}
-                  />
-                  <div 
-                    className="absolute bottom-0 left-0 w-full h-10 translate-y-full" 
-                    style={{ touchAction: 'none' }}
-                    onClick={(e) => {
-                      // When clicking the bottom helper, set slider to minimum
-                      e.stopPropagation();
-                      setSounds(prev => ({
-                        ...prev,
-                        [sound as SoundType]: {
-                          ...prev[sound as SoundType],
-                          targetValue: 0,
-                          value: 0,
-                          isActive: false,
-                          showSlider: true
-                        }
-                      }));
-                      playSoundWithThrottle(sound as SoundType, 0);
-                      setSliderActive(sound as SoundType, true);
-                      setTimeout(() => setSliderActive(sound as SoundType, false), 3000);
-                    }}
-                  />
-                  
                   {/* Slider track background - with extended hitbox */}
-                  <div className="absolute inset-0 w-2 md:w-2.5 mx-auto rounded-full bg-gray-700/40 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
+                  <div className="absolute inset-0 w-2 md:w-2.5 mx-auto rounded-full bg-gray-700/30 cursor-pointer before:content-[''] before:absolute before:inset-0 before:w-12 before:md:w-16 before:mx-auto" />
                   
                   {/* Active track */}
                   <div 
-                    className={`absolute bottom-0 w-2 md:w-2.5 mx-auto rounded-full transition-all will-change-transform ${
-                      isActive 
-                        ? hasAudio 
-                          ? 'bg-blue-500/40' 
-                          : 'bg-purple-500/50'
-                        : 'bg-gray-500/40'
-                    }`}
-                  style={{ 
-                    height: `${state.value * 100}%`, 
-                    transform: 'translateZ(0)'
-                  }}
-                  />
-                  
-                  {/* Tick marks for the scale - positioned on both sides */}
-                  <div 
-                    className={`absolute inset-y-0 w-full flex flex-col justify-between py-4 pointer-events-none tick-marks-container ${
-                      activeSliders[sound as SoundType] ? 'fade-in' : 'fade-out'
-                    }`}
-                  >
-                    {[...Array(6)].map((_, i) => {
-                      // Calculate if this tick mark is below or above the current value
-                      // 0 = top, 5 = bottom 
-                      const tickPosition = i / 5; // Normalize to 0-1 range
-                      const isAboveValue = tickPosition <= 1 - state.value;
-                      
-                      // For sidelines at the slider value position (or very close), create a gradient
-                      const isTransition = Math.abs(tickPosition - (1 - state.value)) < 0.1;
-                      
-                      // Colors based on state
-                      const inactiveColor = 'rgb(156 163 175 / 0.4)'; // gray-400/40
-                      
-                      // Rainbow colors for active part
-                      // Map the position to a color in the rainbow spectrum
-                      // Position 5 (bottom) = red, Position 0 (top) = violet
-                      
-                      // Get active color based on position in the slider
-                      const activeColor = hasAudio 
-                        ? getRainbowColor(tickPosition)  // Rainbow gradient for active part
-                        : 'rgb(168, 85, 247, 0.9)';      // Keep purple for non-audio
-                        
-                      // Apply appropriate styles based on position
-                      let tickStyles = {};
-                      
-                      if (isTransition) {
-                        // For marks near the transition point, use a gradient
-                        tickStyles = {
-                          background: `linear-gradient(to bottom, ${inactiveColor} 0%, ${activeColor} 100%)`
-                        };
-                      } else {
-                        // Solid color based on position
-                        tickStyles = {
-                          backgroundColor: isAboveValue ? inactiveColor : activeColor,
-                          // Make bottom ticks slightly thicker for better visibility
-                          height: isAboveValue ? '2px' : `${2 + (tickPosition * 1)}px`,
-                          opacity: isAboveValue ? 0.4 : 1
-                        };
-                      }
-                      
-                      return (
-                      <div key={i} className="w-full flex justify-between items-center px-3">
-                          <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
-                          <div className="w-2 h-0.5 rainbow-tick" style={tickStyles}></div>
-                      </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Slider tip/handle */}
-                  <div 
-                    className="absolute transition-all pointer-events-none hover:scale-110 will-change-transform"
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      bottom: `calc(${Math.max(0.05, state.value) * 100}%)`,
-                      transform: 'translateY(50%) translateZ(0)',
-                      left: 'calc(50% - 16px)',
-                      backgroundColor: 'rgba(200, 200, 200, 0.95)',
-                      borderRadius: '50%',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.1)',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
-                  >
-                    {/* Center dot in active/inactive color */}
-                    <div 
-                      className="transition-colors"
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: isActive 
-                          ? hasAudio 
-                            ? getRainbowColor(1 - state.value) // Use the same rainbow color function
-                            : 'rgb(168, 85, 247)' // Purple for non-audio
-                          : 'rgb(107, 114, 128)' // Gray-500 for inactive
-                      }}
-                    ></div>
-                  </div>
-                </div>
-                
-                {/* Icon and label with blurred background */}
-              <div className="flex flex-col items-center gap-1 bg-black/10 backdrop-blur-md rounded-lg px-3 py-2">
-                  <button
-                    onClick={() => handleIconClick(sound as SoundType)}
-                  className={`p-2 md:p-2 rounded-full transition-all transform hover:scale-110 touch-manipulation ${
-                      isActive 
-                        ? hasAudio
-                          ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
-                          : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
-                        : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
-                    }`}
-                    aria-label={`Toggle ${soundLabels[sound as keyof typeof soundLabels]}`}
-                  >
-                  <Icon className="w-6 h-6 md:w-6 md:h-6" />
-                  </button>
-                  <span className={`text-[10px] md:text-xs font-medium ${
-                    isActive 
-                      ? hasAudio 
-                        ? 'text-white' 
-                        : 'text-white'
-                      : 'text-white/60'
-                  }`}>
-                    {soundLabels[sound as keyof typeof soundLabels]}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-      </div>
-    </div>
-  );
-} 
+                    className={`
