@@ -1,0 +1,6 @@
+# Allow all web crawlers to index the site
+User-agent: *
+Allow: /
+
+# Specify the path to the sitemap (if you have one in the future)
+# Sitemap: https://yoursite.com/sitemap.xml 
