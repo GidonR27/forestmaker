@@ -6,9 +6,15 @@ import { Analytics } from "@vercel/analytics/react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Forest Maker",
-  description: "Create your perfect forest soundscape",
+  title: "Forest Maker - Create Your Perfect Forest Soundscape",
+  description: "Design your own forest atmosphere. Mix sounds like rain, wind, fireflies, and create a personalized relaxing forest experience.",
   manifest: "/manifest.json",
+  keywords: "forest sounds, nature sounds, ambient forest, rain sounds, relaxing sounds, background sound app, meditation sounds, calming forest, wind sounds, fire crackling, bird songs, nature soundscape, peaceful atmosphere, forest ambience, relaxing nature app, sleep sounds, mindfulness sounds, natural sound mixer, forest sound generator, ambient rain forest",
+  authors: [{ name: "Forest Maker" }],
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
