@@ -42,6 +42,30 @@ export const metadata: Metadata = {
   themeColor: "#ffffff",
 };
 
+const webAppJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Forest Maker',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://forestmaker.vercel.app',
+  description:
+    'Mix nature sounds — rain, wind, birds, insects, fire, and more — to build your perfect forest soundscape for sleep, focus, meditation, or relaxation.',
+  applicationCategory: 'LifestyleApplication',
+  operatingSystem: 'Web, iOS, Android',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  featureList: [
+    'Ambient forest soundscapes',
+    'Customizable sound mixing',
+    '19 real-world forests',
+    'Sleep sounds',
+    'Focus and meditation sounds',
+    'Background audio on mobile',
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -57,6 +81,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Forest Maker" />
         {/* Theme color */}
         <meta name="theme-color" content="#ffffff" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppJsonLd) }}
+        />
       </head>
       <body className={inter.className}>
         {children}

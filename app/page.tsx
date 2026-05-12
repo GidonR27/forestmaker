@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import SoundEqualizer from './components/SoundEqualizer';
 import ForestMatch from './components/ForestMatch';
 import PiPMiniPlayer, { PiPMiniPlayerHandle } from './components/PiPMiniPlayer';
@@ -25,7 +27,8 @@ const soundIcons = {
   spiritual: TbPray
 } as const;
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
   const [currentForest, setCurrentForest] = useState<Forest | null>(null);
   const [activeSounds, setActiveSounds] = useState<Set<SoundType>>(new Set());
   const [soundValues, setSoundValues] = useState<Record<SoundType, number>>({
@@ -49,6 +52,26 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const pipPlayerRef = useRef<PiPMiniPlayerHandle>(null);
   const lastSoundValuesRef = useRef<Record<SoundType, number>>(soundValues);
+
+  // Auto-load forest from ?forest=id URL param (used by forest detail pages)
+  useEffect(() => {
+    const forestId = searchParams.get('forest');
+    if (!forestId) return;
+    const preselected = forests.find((f) => f.id === forestId);
+    if (!preselected) return;
+
+    setCurrentForest(preselected);
+    setHasInteracted(true);
+
+    const newSoundValues: Record<SoundType, number> = { ...preselected.soundProfile } as Record<SoundType, number>;
+    setSoundValues(newSoundValues);
+
+    const active = (Object.keys(preselected.soundProfile) as SoundType[]).filter(
+      (k) => preselected.soundProfile[k] > 0
+    );
+    setActiveSounds(new Set(active));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Setup Media Session API
   useEffect(() => {
@@ -382,7 +405,8 @@ export default function Home() {
   };
 
   return (
-    <main className="fixed inset-0 overflow-hidden">
+    <>
+    <div className="relative h-screen overflow-hidden">
       {/* Background image with transition */}
       <div className="fixed inset-0 z-0">
         {/* Previous image */}
@@ -465,6 +489,49 @@ export default function Home() {
           onClose={handlePiPClose}
         />
       </div>
-    </main>
+    </div>
+
+    {/* Explore All Forests — crawlable section for SEO */}
+    <section className="relative z-20 bg-gray-950/95 backdrop-blur-sm border-t border-white/10 px-4 py-12">
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-2xl font-bold text-white mb-2">Explore All Forests</h2>
+        <p className="text-white/50 text-sm mb-8">
+          Pick a forest to load its sound profile, or build your own mix from scratch.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {forests.map((f) => (
+            <Link
+              key={f.id}
+              href={`/forest/${f.id}`}
+              className="group relative rounded-xl overflow-hidden aspect-[4/3] bg-white/5 border border-white/10 hover:border-white/30 transition-colors"
+            >
+              <Image
+                src={f.imageUrl}
+                alt={f.name}
+                fill
+                className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-2">
+                <p className="text-white text-xs font-semibold leading-tight line-clamp-2">
+                  {f.name}
+                </p>
+                <p className="text-white/50 text-[10px] mt-0.5">{f.location}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+    </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }

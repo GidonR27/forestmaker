@@ -26,6 +26,7 @@ export const forests: Forest[] = [
     id: 'amazon',
     name: 'Amazon Rainforest',
     location: 'South America',
+    description: 'The Amazon Rainforest is Earth\'s largest tropical forest and its most biodiverse ecosystem, filled with relentless tropical rain, distant thunderstorms, exotic birds, and a dense insect chorus. Its soundscape is one of the richest on the planet — a constant wall of layered natural sound perfect for deep focus, sleep, or meditation. Listening to Amazon ambient sounds evokes shelter deep inside an ancient jungle, far from the noise of modern life.',
     vibe: 'Lush, vibrant, and teeming with life',
     imageUrl: '/assets/images/Amazon.jpg',
     soundProfile: {
@@ -45,6 +46,7 @@ export const forests: Forest[] = [
     id: 'black-forest',
     name: 'Black Forest',
     location: 'Germany',
+    description: 'The Black Forest (Schwarzwald) of southwestern Germany is a dense expanse of pine and fir trees that has inspired fairy tales for centuries. Strong winds whistle through the treetops while occasional thunderstorms roll in from the Rhine valley, creating an atmosphere that is equal parts mysterious and deeply calming. Its ambient sounds are ideal for focus work, reading, or falling asleep to something atmospheric and ancient.',
     vibe: 'Mysterious, ancient, and enchanting',
     imageUrl: '/assets/images/Black.png',
     soundProfile: {
@@ -64,6 +66,7 @@ export const forests: Forest[] = [
     id: 'redwood',
     name: 'Redwood Forest',
     location: 'California',
+    description: 'California\'s Coastal Redwood Forests are home to the tallest trees on Earth, where strong Pacific winds move through cathedral-like canopies and coastal moisture fills the air. The soundscape is spacious and humbling — light rainfall, the creak of giant trunks, and distant coastal birds create a profoundly peaceful ambient atmosphere. Redwood forest sounds are popular for meditation, yoga, and deep relaxation sessions.',
     vibe: 'Majestic, peaceful, and awe-inspiring',
     imageUrl: '/assets/images/Redwood.png',
     soundProfile: {
@@ -83,6 +86,7 @@ export const forests: Forest[] = [
     id: 'boreal',
     name: 'Boreal Forest',
     location: 'Canada',
+    description: 'The Canadian Boreal Forest is the world\'s largest intact forest ecosystem, stretching across millions of acres of spruce, pine, and fir under vast northern skies. Its soundscape is defined by powerful boreal winds, the calls of seasonal birds, and a deep, vast silence punctuated by wildlife. These nature sounds are exceptional for sleep, stress relief, and conjuring the feeling of total wilderness solitude.',
     vibe: 'Serene, vast, and pristine',
     imageUrl: '/assets/images/Boreal.png',
     soundProfile: {
@@ -102,6 +106,7 @@ export const forests: Forest[] = [
     id: 'taiga',
     name: 'Taiga Forest',
     location: 'Russia',
+    description: 'The Russian Taiga is the largest biome on Earth — a near-endless belt of conifer forest stretching from the Ural Mountains to the Pacific coast. Fierce winds, scattered wildlife calls, and an almost spiritual sense of isolation define its soundscape. Taiga ambient sounds are ideal for deep focus, studying, and finding calm in a sound environment that feels both primordial and otherworldly.',
     vibe: 'Cold, vast, and resilient',
     imageUrl: '/assets/images/Taiga.png',
     soundProfile: {
@@ -121,6 +126,7 @@ export const forests: Forest[] = [
     id: 'sundarbans',
     name: 'Sundarbans',
     location: 'Bangladesh/India',
+    description: 'The Sundarbans is the world\'s largest mangrove forest, a UNESCO World Heritage Site straddling the delta of the Ganges and Brahmaputra rivers. Heavy monsoon rains, tidal waterways, thunderstorms, and an extraordinary diversity of birds and insects create one of the most immersive natural soundscapes on Earth. Listening to Sundarbans ambient sounds is a journey into a wild, watery world that few humans ever experience in person.',
     vibe: 'Mysterious, wet, and wild',
     imageUrl: '/assets/images/Sundarbans.png',
     soundProfile: {
@@ -140,6 +146,7 @@ export const forests: Forest[] = [
     id: 'aokigahara',
     name: 'Aokigahara',
     location: 'Japan',
+    description: 'Aokigahara, known as the Sea of Trees, grows on the northwestern flank of Mount Fuji on a hardened lava field that absorbs sound to an almost supernatural degree. The forest is eerily quiet — wind barely penetrates the dense canopy, and the porous lava beneath muffles footsteps and outside noise. Its deeply silent, spiritual ambient atmosphere makes it a uniquely powerful soundscape for mindfulness, deep meditation, and introspective focus.',
     vibe: 'Silent, mysterious, and haunting',
     imageUrl: '/assets/images/Aokigahara.png',
     soundProfile: {
@@ -159,6 +166,7 @@ export const forests: Forest[] = [
     id: 'tongass',
     name: 'Tongass Forest',
     location: 'Alaska',
+    description: 'The Tongass National Forest in Southeast Alaska is the largest national forest in the United States and one of the last great temperate rainforests on the planet. Strong coastal winds, heavy Pacific rainfall, rushing salmon streams, and an abundance of wildlife — including bears, wolves, and bald eagles — create a wild and invigorating soundscape. Tongass ambient sounds are perfect for focus, stress relief, or simply escaping into unspoiled wilderness.',
     vibe: 'Ancient, wet, and wild',
     imageUrl: '/assets/images/Tongass.png',
     soundProfile: {
@@ -178,6 +186,7 @@ export const forests: Forest[] = [
     id: 'jiuzhaigou',
     name: 'Jiuzhaigou Valley',
     location: 'China',
+    description: 'Jiuzhaigou Valley in Sichuan, China is a UNESCO World Heritage Site famous for its multi-tiered waterfalls, turquoise lakes, and forest-covered peaks. The valley\'s soundscape is dominated by flowing and cascading water at every turn, layered with birdsong and the gentle rustle of trees. Jiuzhaigou nature sounds create a profoundly peaceful and magical atmosphere ideal for relaxation, sleep, and meditation.',
     vibe: 'Colorful, peaceful, and magical',
     imageUrl: '/assets/images/Jiuzhaigou.png',
     soundProfile: {
@@ -197,6 +206,7 @@ export const forests: Forest[] = [
     id: 'crooked',
     name: 'Crooked Forest',
     location: 'Poland',
+    description: 'The Crooked Forest (Krzywy Las) near Gryfino, Poland is a small grove of pine trees whose trunks all curve sharply northward at the base — a natural mystery that has never been fully explained. Surrounded by a larger conventional forest, its ambient sounds mix moderate winds, birdsong, and a spiritual sense of strangeness that sparks the imagination. The Crooked Forest soundscape is a unique backdrop for creative work, reading, and contemplative thought.',
     vibe: 'Mysterious, unique, and enchanting',
     imageUrl: '/assets/images/Crooked.png',
     soundProfile: {
@@ -216,6 +226,7 @@ export const forests: Forest[] = [
     id: 'drakensberg',
     name: 'Drakensberg Forest',
     location: 'South Africa',
+    description: 'The Drakensberg (Dragon\'s Mountains) in South Africa is a UNESCO World Heritage Site where ancient forest clings to dramatic basalt cliffs rising over 3,000 meters. Strong mountain winds, seasonal storms, a remarkable diversity of endemic birds, and the calls of wildlife create a layered and powerful soundscape. Drakensberg ambient sounds capture the raw, untamed spirit of Africa\'s highest peaks and are ideal for energizing focus sessions or immersive relaxation.',
     vibe: 'Dramatic, ancient, and diverse',
     imageUrl: '/assets/images/Drakensberg.png',
     soundProfile: {
@@ -235,6 +246,7 @@ export const forests: Forest[] = [
     id: 'valdivian',
     name: 'Valdivian Forest',
     location: 'Chile',
+    description: 'The Valdivian Temperate Rainforest of southern Chile is one of the rarest forest ecosystems in the world, found only in a narrow coastal strip between the Andes and the Pacific. Torrential rainfall, rushing rivers, mossy ancient trees, and a hauntingly quiet undergrowth create an atmospheric soundscape unlike anything else on Earth. Valdivian forest sounds are ideal for deep sleep, meditation, and creating a cocoon of calm during rainy-day work.',
     vibe: 'Ancient, wet, and mysterious',
     imageUrl: '/assets/images/Valdivian.png',
     soundProfile: {
@@ -254,6 +266,7 @@ export const forests: Forest[] = [
     id: 'sinharaja',
     name: 'Sinharaja Forest',
     location: 'Sri Lanka',
+    description: 'Sinharaja Forest Reserve in Sri Lanka is the island\'s last viable area of primary tropical rainforest and a UNESCO World Heritage Site with exceptionally high levels of endemism. The forest rings with an extraordinary density of birdsong, insect rhythms, and monsoon rainfall channeled through a multi-layered canopy. Sinharaja ambient sounds are rich, textured, and alive — perfect for focus, creative flow, or deep relaxation.',
     vibe: 'Lush, diverse, and ancient',
     imageUrl: '/assets/images/Sinharaja.png',
     soundProfile: {
@@ -293,8 +306,9 @@ export const forests: Forest[] = [
   },
   {
     id: 'hoh',
-    name: 'Hoh Forest',
+    name: 'Hoh Rainforest',
     location: 'Washington, USA',
+    description: 'The Hoh Rainforest in Olympic National Park, Washington is one of the few remaining temperate rainforests in the world, receiving up to 12 feet of rain per year. Ancient Sitka spruce and western red cedar are draped in thick carpets of moss, and the forest is so acoustically soft that it is used as a reference for natural quiet. Hoh Rainforest sounds — dripping rain, gentle streams, muffled birdcalls — are ideal for sleep, focus work, or recovering from sensory overload.',
     vibe: 'temperate, misty, mossy, ancient, peaceful',
     imageUrl: '/assets/images/Hoh2.png',
     soundProfile: {
@@ -312,8 +326,9 @@ export const forests: Forest[] = [
   },
   {
     id: 'daintree',
-    name: 'Daintree Forest',
+    name: 'Daintree Rainforest',
     location: 'Australia',
+    description: 'The Daintree Rainforest in Far North Queensland is the oldest continuously surviving tropical rainforest on Earth, dating back 180 million years. It overflows with birdlife — from cassowaries to cockatoos — alongside insects, rain, and a tropical vibrancy that feels prehistoric. Daintree ambient sounds are a rich, warming soundscape for focus, creative work, or transporting yourself to the most ancient forest alive.',
     vibe: 'Ancient, diverse, and vibrant',
     imageUrl: '/assets/images/Daintree.jpg',
     soundProfile: {
@@ -333,6 +348,7 @@ export const forests: Forest[] = [
     id: 'congo',
     name: 'Congo Rainforest',
     location: 'Central Africa',
+    description: 'The Congo Rainforest is the world\'s second-largest tropical forest and the largest in Africa, home to gorillas, forest elephants, and an almost incomprehensible density of insects and wildlife. Its soundscape is dense and layered — a full-spectrum wall of insects, birds, mammals, and rain that creates an enveloping, primal ambient environment. Congo forest sounds are powerful for deep focus, blocking out distractions, and connecting to the raw pulse of the natural world.',
     vibe: 'Dense, mysterious, and alive',
     imageUrl: '/assets/images/Congo.png',
     soundProfile: {
@@ -352,6 +368,7 @@ export const forests: Forest[] = [
     id: 'bear',
     name: 'Great Bear Rainforest',
     location: 'Canada',
+    description: 'The Great Bear Rainforest along British Columbia\'s central and north coast is one of the largest intact temperate rainforests on Earth and home to the rare Spirit Bear. Coastal winds, heavy Pacific rainfall, rushing salmon rivers, and the sounds of wolves, bears, and eagles create an extraordinarily rich and wild soundscape. Great Bear Rainforest ambient sounds invoke pure, untouched wilderness — perfect for deep relaxation, sleep, and mindfulness practice.',
     vibe: 'Wild, coastal, and pristine',
     imageUrl: '/assets/images/Bear.jpg',
     soundProfile: {
@@ -371,6 +388,7 @@ export const forests: Forest[] = [
     id: 'yakushima',
     name: 'Yakushima Forest',
     location: 'Japan',
+    description: 'Yakushima Island in southern Japan is blanketed in ancient cedar forest, some trees over 7,000 years old, and receives one of the highest rainfalls in Japan. The island\'s forest — said to have inspired the setting for Studio Ghibli\'s Princess Mononoke — is a place of profound stillness and spiritual presence, filled with the sound of rain, mountain streams, and mist-shrouded silence. Yakushima forest sounds are among the most calming and meditative ambient soundscapes in the world.',
     vibe: 'Ancient, mystical, and serene',
     imageUrl: '/assets/images/Yakushima.jpg',
     soundProfile: {
