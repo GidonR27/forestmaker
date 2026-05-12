@@ -47,15 +47,6 @@ const nextConfig = {
   webpack: (config) => {
     return config;
   },
-  // Add support for HTTPS in development
-  async rewrites() {
-    return [
-      {
-        source: '/:path*',
-        destination: '/:path*',
-      },
-    ];
-  },
 };
 
 module.exports = withPWA(nextConfig);
