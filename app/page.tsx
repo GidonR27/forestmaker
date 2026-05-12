@@ -50,6 +50,8 @@ function HomeContent() {
   const [nextImageLoaded, setNextImageLoaded] = useState(false);
   const [isPiPVisible, setIsPiPVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [pendingPreset, setPendingPreset] = useState<Record<SoundType, number> | null>(null);
+  const [activePreset, setActivePreset] = useState<Record<SoundType, number> | null>(null);
   const pipPlayerRef = useRef<PiPMiniPlayerHandle>(null);
   const lastSoundValuesRef = useRef<Record<SoundType, number>>(soundValues);
 
@@ -62,14 +64,7 @@ function HomeContent() {
 
     setCurrentForest(preselected);
     setHasInteracted(true);
-
-    const newSoundValues: Record<SoundType, number> = { ...preselected.soundProfile } as Record<SoundType, number>;
-    setSoundValues(newSoundValues);
-
-    const active = (Object.keys(preselected.soundProfile) as SoundType[]).filter(
-      (k) => preselected.soundProfile[k] > 0
-    );
-    setActiveSounds(new Set(active));
+    setPendingPreset(preselected.soundProfile as Record<SoundType, number>);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -476,7 +471,7 @@ function HomeContent() {
         {/* Sound Equalizer - Fixed at bottom */}
         <div className="flex-none">
           <div className="w-full py-6">
-            <SoundEqualizer onSoundChange={handleSoundChange} />
+            <SoundEqualizer onSoundChange={handleSoundChange} presetProfile={activePreset} />
           </div>
         </div>
         
@@ -488,6 +483,36 @@ function HomeContent() {
           isVisible={isPiPVisible}
           onClose={handlePiPClose}
         />
+
+        {/* Play overlay — shown when arriving from a forest page, requires user gesture to start audio */}
+        {pendingPreset && !activePreset && currentForest && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="text-center px-6">
+              <p className="text-white/60 text-sm uppercase tracking-widest mb-2">
+                {currentForest.location}
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                {currentForest.name}
+              </h2>
+              <p className="text-white/60 text-sm mb-8">
+                Tap to start the soundscape
+              </p>
+              <button
+                onClick={() => {
+                  audioManager.audioContext?.resume().catch(() => {});
+                  setActivePreset(pendingPreset);
+                  setPendingPreset(null);
+                }}
+                className="w-20 h-20 rounded-full bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur-sm border border-white/30 flex items-center justify-center mx-auto transition-all active:scale-95"
+                aria-label={`Play ${currentForest.name} sounds`}
+              >
+                <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
 

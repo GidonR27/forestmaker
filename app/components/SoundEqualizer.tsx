@@ -8,6 +8,7 @@ import { SoundType } from '../utils/forestMatcher';
 
 interface SoundEqualizerProps {
   onSoundChange: (sounds: SoundType[], soundValues?: Record<SoundType, number>) => void;
+  presetProfile?: Record<SoundType, number> | null;
 }
 
 const soundIcons = {
@@ -47,7 +48,7 @@ type SoundProfile = {
   [K in SoundType]: SoundState;
 };
 
-export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
+export default function SoundEqualizer({ onSoundChange, presetProfile }: SoundEqualizerProps) {
   const [sounds, setSounds] = useState<SoundProfile>(() => {
     const initial: SoundProfile = {} as SoundProfile;
     Object.keys(soundIcons).forEach((sound) => {
@@ -437,6 +438,35 @@ export default function SoundEqualizer({ onSoundChange }: SoundEqualizerProps) {
       audioManager.cleanup();
     };
   }, []);
+
+  // Apply a preset sound profile (e.g. from URL param after user gesture)
+  const appliedPresetRef = useRef<Record<SoundType, number> | null>(null);
+  useEffect(() => {
+    if (!presetProfile || presetProfile === appliedPresetRef.current) return;
+    appliedPresetRef.current = presetProfile;
+
+    const soundTypes = Object.keys(soundIcons) as SoundType[];
+
+    setSounds(prev => {
+      const next = { ...prev };
+      soundTypes.forEach(sound => {
+        const value = presetProfile[sound] ?? 0;
+        next[sound] = { ...prev[sound], value, targetValue: value, isActive: value > 0, showSlider: value > 0 };
+      });
+      return next;
+    });
+
+    soundTypes.forEach((sound, i) => {
+      const value = presetProfile[sound] ?? 0;
+      if (value > 0) {
+        setTimeout(() => {
+          playSoundWithThrottle(sound, value);
+        }, 80 + i * 40);
+      }
+    });
+    // playSoundWithThrottle is intentionally omitted from deps to avoid re-runs on sounds state change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetProfile]);
 
   // Memoize the slider change handler with throttling
   const handleSliderChange = useCallback((sound: SoundType, value: number) => {
