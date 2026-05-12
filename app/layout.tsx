@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   keywords: "forest sounds, nature sounds, ambient forest, rain sounds, relaxing sounds, background sound app, meditation sounds, calming forest, wind sounds, fire crackling, bird songs, nature soundscape, peaceful atmosphere, forest ambience, relaxing nature app, sleep sounds, mindfulness sounds, natural sound mixer, forest sound generator, ambient rain forest",
   authors: [{ name: "Forest Maker" }],
+  verification: {
+    google: 'e-Bm2XIG87CTU7w7xAsoY2gjG2sL9jdzyoGhu5-9-_w',
+  },
   viewport: {
     width: "device-width",
     initialScale: 1,
